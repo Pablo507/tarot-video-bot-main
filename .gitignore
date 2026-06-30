@@ -1,0 +1,19 @@
+# Credenciales — NUNCA subir a git
+.env
+client_secrets.json
+token.json
+tts_credentials.json
+
+# Generado por el bot
+output_videos/
+temp/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/

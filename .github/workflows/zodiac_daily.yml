@@ -1,0 +1,136 @@
+name: Tarot Zodiacal — 12 Signos Diarios
+
+on:
+  schedule:
+    # 12:00 UTC = 09:00 Uruguay (UYT, UTC-3)
+    # Publicamos de lunes a viernes
+    - cron: "0 12 * * 1-5"
+
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (genera videos sin subir a YouTube)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      zodiac:
+        description: "Signo específico (vacío = los 12)"
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  generate-zodiac-videos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120   # 12 videos × ~8 min c/u = ~96 min
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # ── 2. Python ────────────────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ── 3. Dependencias del sistema ──────────────────────────────────────────
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            ffmpeg \
+            fonts-dejavu-core \
+            fonts-liberation \
+            imagemagick \
+            --no-install-recommends
+
+      # ── 4. Dependencias Python ───────────────────────────────────────────────
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ── 5. Secrets → archivos de credenciales ────────────────────────────────
+      - name: Write Google credentials
+        run: |
+          echo '${{ secrets.GOOGLE_TTS_CREDENTIALS }}' > tts_credentials.json
+          echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
+          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
+
+      - name: Set Google Application Credentials
+        run: echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/tts_credentials.json" >> $GITHUB_ENV
+
+      # ── 6. Variables de entorno ───────────────────────────────────────────────
+      - name: Set environment variables
+        run: |
+          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"     >> $GITHUB_ENV
+          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}" >> $GITHUB_ENV
+
+      # ── 7. Generar y subir videos ─────────────────────────────────────────────
+      - name: Run bot — 12 signos zodiacales
+        run: |
+          # Determinar argumentos
+          DRY_FLAG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_FLAG="--dry-run"
+          fi
+
+          ZODIAC_ARG="${{ github.event.inputs.zodiac }}"
+
+          if [ -n "$ZODIAC_ARG" ]; then
+            # Signo específico (para pruebas manuales)
+            echo "▶ Generando video para: $ZODIAC_ARG"
+            python pipeline.py --zodiac "$ZODIAC_ARG" $DRY_FLAG
+          else
+            # Modo normal: los 12 signos
+            echo "▶ Generando los 12 signos zodiacales..."
+            python pipeline.py --all-signs $DRY_FLAG
+          fi
+
+      # ── 8. Subir videos como artefacto (útil para revisión) ──────────────────
+      - name: Upload videos as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarot-zodiacal-${{ github.run_id }}
+          path: output_videos/
+          retention-days: 3
+
+      # ── 9. Mostrar resumen ────────────────────────────────────────────────────
+      - name: Show run summary
+        if: always()
+        run: |
+          if [ -f output_videos/last_run.json ]; then
+            echo "=== RESUMEN DEL RUN ==="
+            cat output_videos/last_run.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          if isinstance(data, list):
+              ok = sum(1 for d in data if d.get('uploaded') or d.get('video_path'))
+              print(f'Videos procesados: {ok}/{len(data)}')
+              for d in data:
+                  sign = d.get('zodiac_key','?').upper()
+                  url  = d.get('youtube_url','(dry-run o error)')
+                  err  = d.get('error','')
+                  if err:
+                      print(f'  ❌ {sign}: {err}')
+                  else:
+                      print(f'  ✅ {sign}: {url}')
+          else:
+              print(json.dumps(data, ensure_ascii=False, indent=2))
+          "
+          fi
+
+      # ── 10. Auto-refrescar token de YouTube en Secrets ────────────────────────
+      - name: Auto-refresh YouTube Token in Secrets
+        if: always()
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          ORIGINAL_YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+        run: |
+          python update_secret.py
