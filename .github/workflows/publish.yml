@@ -71,21 +71,7 @@ jobs:
           echo "Ejecutando: $CMD"
           eval $CMD
 
-      - name: 📋 Guardar resumen del run
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: resumen-${{ github.run_number }}
-          path: output_videos/last_run.json
-          retention-days: 14
-
-      - name: 🎥 Guardar video (solo en dry-run)
-        if: ${{ github.event.inputs.dry_run == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: video-dry-run-${{ github.run_number }}
-          path: output_videos/*.mp4
-          retention-days: 3
+      
 
       - name: ⚙️ Auto-refrescar token de YouTube en Secrets
         if: always()
