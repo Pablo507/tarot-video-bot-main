@@ -1,96 +1,163 @@
-name: 🔮 Publicar video de Tarot en YouTube
+name: 🔮 Publicar 12 videos de Tarot en YouTube
 
 on:
+  # Todos los días a las 14:00 UTC (11:00 AM Uruguay)
   schedule:
-    - cron: "0 14 * * 1,3,5"
+    - cron: "0 14 * * *"
+
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Dry run — generar video sin subir a YouTube"
+        description: "Dry run — generar sin subir a YouTube"
         type: boolean
         default: false
-      card:
-        description: "Forzar carta específica (ej: La Luna)"
-        type: string
-        default: ""
       private:
         description: "Subir como privado"
         type: boolean
         default: false
+      group:
+        description: "Solo un grupo (0-3) — vacío = todos"
+        type: string
+        default: ""
 
 jobs:
-  publish:
+  # ── 4 jobs en paralelo — uno por grupo de 3 signos ──────────────────────────
+  grupo-0:
+    name: "♈ Aries · ♉ Tauro · ♊ Géminis"
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 28
+    if: ${{ github.event.inputs.group == '' || github.event.inputs.group == '0' }}
     steps:
-      - name: 📥 Checkout repo
-        uses: actions/checkout@v4
-
-      - name: 🐍 Configurar Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
-
-      - name: 🔧 Instalar sistema — ffmpeg + fuentes
+      - name: Sistema
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
-
-      - name: 📦 Instalar dependencias Python
+      - name: Dependencias
         run: |
           pip install -r requirements.txt
-          python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt); print('Parche OK')"
-
-      - name: 🔑 Configurar credenciales Google (TTS + YouTube)
+          python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt)"
+      - name: Credenciales
         run: |
           echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
           echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
           echo '${{ secrets.GOOGLE_TTS_CREDENTIALS }}' > tts_credentials.json
-
-      - name: ⚙️ Crear .env desde Secrets
+          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"                  > .env
+          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"             >> .env
+          echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
+          echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
+      - name: Generar y publicar
         run: |
-          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"              > .env
-          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"         >> .env
-          echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"  >> .env
-          echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                     >> .env
-
-      - name: 🎬 Generar y publicar video
-        run: |
-          CMD="python pipeline.py"
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
-            CMD="$CMD --dry-run"
-          fi
-          if [ -n "${{ github.event.inputs.card }}" ]; then
-            CMD="$CMD --card \"${{ github.event.inputs.card }}\""
-          fi
-          if [ "${{ github.event.inputs.private }}" = "true" ]; then
-            CMD="$CMD --private"
-          fi
-          echo "Ejecutando: $CMD"
+          CMD="python pipeline.py --group 0"
+          [ "${{ github.event.inputs.dry_run }}" = "true" ] && CMD="$CMD --dry-run"
+          [ "${{ github.event.inputs.private }}" = "true" ] && CMD="$CMD --private"
           eval $CMD
 
-      - name: 📋 Guardar resumen del run
-        if: always()
-        uses: actions/upload-artifact@v4
+  grupo-1:
+    name: "♋ Cáncer · ♌ Leo · ♍ Virgo"
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    if: ${{ github.event.inputs.group == '' || github.event.inputs.group == '1' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          name: resumen-${{ github.run_number }}
-          path: output_videos/last_run.json
-          retention-days: 14
-
-      - name: 🎥 Guardar video (solo en dry-run)
-        if: ${{ github.event.inputs.dry_run == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: video-dry-run-${{ github.run_number }}
-          path: output_videos/*.mp4
-          retention-days: 3
-
-      - name: ⚙️ Auto-refrescar token de YouTube en Secrets
-        if: always()
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-          ORIGINAL_YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+          python-version: "3.11"
+          cache: "pip"
+      - name: Sistema
         run: |
-          python update_secret.py
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
+      - name: Dependencias
+        run: |
+          pip install -r requirements.txt
+          python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt)"
+      - name: Credenciales
+        run: |
+          echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
+          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
+          echo '${{ secrets.GOOGLE_TTS_CREDENTIALS }}' > tts_credentials.json
+          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"                  > .env
+          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"             >> .env
+          echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
+          echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
+      - name: Generar y publicar
+        run: |
+          CMD="python pipeline.py --group 1"
+          [ "${{ github.event.inputs.dry_run }}" = "true" ] && CMD="$CMD --dry-run"
+          [ "${{ github.event.inputs.private }}" = "true" ] && CMD="$CMD --private"
+          eval $CMD
+
+  grupo-2:
+    name: "♎ Libra · ♏ Escorpio · ♐ Sagitario"
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    if: ${{ github.event.inputs.group == '' || github.event.inputs.group == '2' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Sistema
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
+      - name: Dependencias
+        run: |
+          pip install -r requirements.txt
+          python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt)"
+      - name: Credenciales
+        run: |
+          echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
+          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
+          echo '${{ secrets.GOOGLE_TTS_CREDENTIALS }}' > tts_credentials.json
+          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"                  > .env
+          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"             >> .env
+          echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
+          echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
+      - name: Generar y publicar
+        run: |
+          CMD="python pipeline.py --group 2"
+          [ "${{ github.event.inputs.dry_run }}" = "true" ] && CMD="$CMD --dry-run"
+          [ "${{ github.event.inputs.private }}" = "true" ] && CMD="$CMD --private"
+          eval $CMD
+
+  grupo-3:
+    name: "♑ Capricornio · ♒ Acuario · ♓ Piscis"
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    if: ${{ github.event.inputs.group == '' || github.event.inputs.group == '3' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Sistema
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
+      - name: Dependencias
+        run: |
+          pip install -r requirements.txt
+          python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt)"
+      - name: Credenciales
+        run: |
+          echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
+          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
+          echo '${{ secrets.GOOGLE_TTS_CREDENTIALS }}' > tts_credentials.json
+          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"                  > .env
+          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"             >> .env
+          echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
+          echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
+      - name: Generar y publicar
+        run: |
+          CMD="python pipeline.py --group 3"
+          [ "${{ github.event.inputs.dry_run }}" = "true" ] && CMD="$CMD --dry-run"
+          [ "${{ github.event.inputs.private }}" = "true" ] && CMD="$CMD --private"
+          eval $CMD

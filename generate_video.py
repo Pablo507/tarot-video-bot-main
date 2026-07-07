@@ -1,16 +1,14 @@
 """
 generate_video.py
-
-Genera un video de tarot (YouTube Shorts 9:16).
+Genera videos de tarot por signo zodiacal (YouTube Shorts 9:16, 720p).
 
 Stack:
-- Groq (Llama 3.3 70B) → guión y metadatos
-- Google Cloud TTS      → voz en español de alta calidad
-- Pexels API            → video de fondo luminoso y cálido
-- MoviePy + PIL         → composición del video final
+  - Groq (Llama 3.3 70B)    → guión personalizado por signo
+  - Google Cloud TTS         → voz en español Neural2
+  - Pexels API               → fondo específico por carta
+  - MoviePy + PIL            → composición 720x1280 (720p Shorts)
 
-Estética: luminosa y cálida — fondos claros, texto oscuro sobre luz.
-Paleta: crema #fdf8f0 | dorado #c9a84c | lavanda suave #9b7fd4 | tierra #8b5e3c
+Estética: paleta de tarotgratis.online
 """
 
 import PIL.Image as _pil_img
@@ -36,30 +34,41 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Configuración ──────────────────────────────────────────────────────────────
-VIDEO_W = 1080
-VIDEO_H = 1920
-FPS     = 24
+# ── Resolución 720p (Shorts sigue siendo 9:16) ────────────────────────────────
+VIDEO_W    = 720
+VIDEO_H    = 1280
+FPS        = 24
 OUTPUT_DIR = Path("output_videos")
 TEMP_DIR   = Path("temp")
 
-# ── Paleta luminosa y cálida ───────────────────────────────────────────────────
-# Fondos claros — sensación de luz, claridad, espiritualidad sin oscuridad
-C_CREAM      = (253, 248, 240)  # #fdf8f0  — fondo crema cálido
-C_CREAM_DARK = (240, 228, 210)  # #f0e4d2  — crema ligeramente más oscuro
-C_GOLD       = (180, 130, 40)   # #b48228  — dorado más oscuro para contraste
-C_GOLD_LIGHT = (220, 175, 80)   # #dcaf50  — dorado suave
-C_LAVENDER   = (155, 127, 212)  # #9b7fd4  — lavanda suave
-C_LAVENDER_L = (200, 180, 240)  # #c8b4f0  — lavanda muy claro
-C_EARTH      = (139, 94, 60)    # #8b5e3c  — tierra cálida
-C_TEXT_DARK  = (60, 40, 20)     # #3c2814  — texto oscuro sobre fondo claro
-C_TEXT_MED   = (100, 70, 40)    # #644628  — texto medio
-C_MUTED      = (150, 120, 90)   # #967858  — texto apagado
+# ── Paleta tarotgratis.online ─────────────────────────────────────────────────
+C_BG_DEEP    = (30, 20, 59)
+C_BG_MID     = (45, 30, 87)
+C_GOLD       = (201, 168, 76)
+C_GOLD_LIGHT = (240, 208, 128)
+C_PURPLE     = (130, 43, 189)
+C_PURPLE_L   = (182, 109, 248)
+C_TEAL       = (15, 171, 162)
+C_TEXT       = (253, 248, 240)
+C_MUTED      = (160, 147, 176)
 
-# Overlay muy suave (reemplaza el 0.55 oscuro anterior)
-OVERLAY_OPACITY = 0.18   # Solo 18% — deja pasar la luz del fondo
-OVERLAY_COLOR   = C_CREAM  # Tinte crema en vez de negro
+# ── Signos zodiacales ─────────────────────────────────────────────────────────
+SIGNOS = [
+    {"nombre": "Aries",       "emoji": "♈", "fechas": "21 mar – 19 abr"},
+    {"nombre": "Tauro",       "emoji": "♉", "fechas": "20 abr – 20 may"},
+    {"nombre": "Géminis",     "emoji": "♊", "fechas": "21 may – 20 jun"},
+    {"nombre": "Cáncer",      "emoji": "♋", "fechas": "21 jun – 22 jul"},
+    {"nombre": "Leo",         "emoji": "♌", "fechas": "23 jul – 22 ago"},
+    {"nombre": "Virgo",       "emoji": "♍", "fechas": "23 ago – 22 sep"},
+    {"nombre": "Libra",       "emoji": "♎", "fechas": "23 sep – 22 oct"},
+    {"nombre": "Escorpio",    "emoji": "♏", "fechas": "23 oct – 21 nov"},
+    {"nombre": "Sagitario",   "emoji": "♐", "fechas": "22 nov – 21 dic"},
+    {"nombre": "Capricornio", "emoji": "♑", "fechas": "22 dic – 19 ene"},
+    {"nombre": "Acuario",     "emoji": "♒", "fechas": "20 ene – 18 feb"},
+    {"nombre": "Piscis",      "emoji": "♓", "fechas": "19 feb – 20 mar"},
+]
 
+# ── Arcanos mayores ───────────────────────────────────────────────────────────
 ARCANOS = [
     "El Loco", "El Mago", "La Sacerdotisa", "La Emperatriz", "El Emperador",
     "El Hierofante", "Los Enamorados", "El Carro", "La Fuerza", "El Ermitaño",
@@ -69,62 +78,53 @@ ARCANOS = [
 ]
 
 CARD_GLYPHS = {
-    "El Loco": "*", "El Mago": "+", "La Sacerdotisa": ")",
-    "La Emperatriz": "~", "El Emperador": "#", "El Hierofante": "=",
-    "Los Enamorados": "<3", "El Carro": ">", "La Fuerza": "8",
-    "El Ermitaño": "|", "La Rueda de la Fortuna": "O", "La Justicia": "=",
-    "El Colgado": "V", "La Muerte": "X", "La Templanza": "+",
-    "El Diablo": "!", "La Torre": "^", "La Estrella": "*",
-    "La Luna": "C", "El Sol": "o", "El Juicio": "!", "El Mundo": "@",
+    "El Loco": "🎭", "El Mago": "⚡", "La Sacerdotisa": "🌙",
+    "La Emperatriz": "🌿", "El Emperador": "👑", "El Hierofante": "🕊️",
+    "Los Enamorados": "💫", "El Carro": "⚔️", "La Fuerza": "🦁",
+    "El Ermitaño": "🕯️", "La Rueda de la Fortuna": "☸️", "La Justicia": "⚖️",
+    "El Colgado": "💧", "La Muerte": "🌑", "La Templanza": "✨",
+    "El Diablo": "🔥", "La Torre": "⚡", "La Estrella": "⭐",
+    "La Luna": "🌙", "El Sol": "☀️", "El Juicio": "🎺", "El Mundo": "🌍",
 }
 
-# Simbolos zodiacales en texto — sin emoji, universalmente compatibles
-ZODIAC_SYMBOLS_TEXT = {
-    "aries":       "( Aries )",
-    "tauro":       "( Tauro )",
-    "geminis":     "( Geminis )",
-    "cancer":      "( Cancer )",
-    "leo":         "( Leo )",
-    "virgo":       "( Virgo )",
-    "libra":       "( Libra )",
-    "escorpio":    "( Escorpio )",
-    "sagitario":   "( Sagitario )",
-    "capricornio": "( Capricornio )",
-    "acuario":     "( Acuario )",
-    "piscis":      "( Piscis )",
+# Pexels queries específicos por carta
+CARD_PEXELS = {
+    "El Loco":               ["adventure path nature", "freedom road", "leap cliff"],
+    "El Mago":               ["mystical candle purple", "magic ritual dark", "crystal ball"],
+    "La Sacerdotisa":        ["moon night purple", "mystery veil", "moonlight dark"],
+    "La Emperatriz":         ["nature green abundance", "flowers garden", "earth goddess"],
+    "El Emperador":          ["mountain peak", "stone throne", "power dark sky"],
+    "El Hierofante":         ["ancient temple", "spiritual ceremony", "sacred candle"],
+    "Los Enamorados":        ["couple sunset", "heart light bokeh", "love romance"],
+    "El Carro":              ["road ahead night", "speed motion blur", "triumph victory"],
+    "La Fuerza":             ["lion majestic", "strength nature", "powerful animal"],
+    "El Ermitaño":           ["lantern night dark", "solitude path fog", "mystical forest"],
+    "La Rueda de la Fortuna":["spinning stars galaxy", "cosmic wheel", "universe rotation"],
+    "La Justicia":           ["scales balance", "law justice", "symmetry architecture"],
+    "El Colgado":            ["water reflection", "hanging tree", "peaceful surrender"],
+    "La Muerte":             ["autumn leaves falling", "transformation dark", "rebirth nature"],
+    "La Templanza":          ["water pour light", "balance zen", "flowing river"],
+    "El Diablo":             ["fire dark flames", "smoke dramatic", "red dark abstract"],
+    "La Torre":              ["lightning storm dramatic", "tower dark", "storm clouds"],
+    "La Estrella":           ["night sky stars", "galaxy milky way", "star field purple"],
+    "La Luna":               ["full moon night", "moon reflection water", "lunar mystical"],
+    "El Sol":                ["sunrise golden", "sunlight rays", "bright sun nature"],
+    "El Juicio":             ["sunrise dramatic", "awakening light", "epic sky clouds"],
+    "El Mundo":              ["earth globe space", "world complete", "universe harmony"],
 }
 
-ZODIAC_SIGNS = {
-    "aries":       {"emoji": "", "nombre": "Aries"},
-    "tauro":       {"emoji": "", "nombre": "Tauro"},
-    "geminis":     {"emoji": "", "nombre": "Geminis"},
-    "cancer":      {"emoji": "", "nombre": "Cancer"},
-    "leo":         {"emoji": "", "nombre": "Leo"},
-    "virgo":       {"emoji": "", "nombre": "Virgo"},
-    "libra":       {"emoji": "", "nombre": "Libra"},
-    "escorpio":    {"emoji": "", "nombre": "Escorpio"},
-    "sagitario":   {"emoji": "", "nombre": "Sagitario"},
-    "capricornio": {"emoji": "", "nombre": "Capricornio"},
-    "acuario":     {"emoji": "", "nombre": "Acuario"},
-    "piscis":      {"emoji": "", "nombre": "Piscis"},
-}
+DEFAULT_QUERIES = ["mystical dark purple", "night sky stars", "smoke dark background"]
 
-# ── Queries Pexels — fondos luminosos y cálidos ────────────────────────────────
-# Reemplaza las queries oscuras anteriores por escenas de luz y naturaleza
-PEXELS_QUERIES_LIGHT = [
-    "white clouds blue sky sunny day",
-    "golden wheat field sunrise daytime",
-    "white cherry blossom flowers sunlight",
-    "green meadow sunny daytime nature",
-    "beach waves sunny blue sky day",
-    "mountain landscape sunny day bright",
-    "lavender field purple flowers sunny",
-    "sunrise over ocean golden light",
-    "forest trees sunlight rays daytime",
-    "white dandelion field bright sunlight",
-]
 
-# ── Fuentes ────────────────────────────────────────────────────────────────────
+# ── Carta del día para cada signo ─────────────────────────────────────────────
+def get_card_for_sign(signo_idx: int) -> str:
+    """Cada signo tiene su propia carta del día basada en fecha + índice."""
+    hoy = datetime.now()
+    idx = (hoy.year + hoy.month + hoy.day + signo_idx * 7) % len(ARCANOS)
+    return ARCANOS[idx]
+
+
+# ── Fuentes ───────────────────────────────────────────────────────────────────
 def _load_fonts(size_large, size_medium, size_small):
     bold_candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
@@ -148,96 +148,54 @@ def _load_fonts(size_large, size_medium, size_small):
     return (
         try_load(bold_candidates, size_large),
         try_load(bold_candidates, size_medium),
-        try_load(reg_candidates,  size_small),
+        try_load(reg_candidates, size_small),
     )
 
-# ── Carta del día ──────────────────────────────────────────────────────────────
-def get_card_of_day(zodiac_key: str = None) -> str:
-    hoy = datetime.now()
-    if zodiac_key:
-        # Carta diferente por signo: offset basado en el índice del signo
-        sign_list = list(ZODIAC_SIGNS.keys())
-        sign_idx  = sign_list.index(zodiac_key) if zodiac_key in sign_list else 0
-        idx = (hoy.year + hoy.month + hoy.day + sign_idx * 3) % len(ARCANOS)
-    else:
-        idx = (hoy.year + hoy.month + hoy.day) % len(ARCANOS)
-    return ARCANOS[idx]
 
-# ── Guión con Groq ─────────────────────────────────────────────────────────────
-def generate_reading(card: str, zodiac_key: str = None) -> dict:
+# ── Guión con Groq ────────────────────────────────────────────────────────────
+def generate_reading(signo: dict, card: str) -> dict:
     client = Groq(api_key=os.environ["GROQ_API_KEY"])
+    hoy = datetime.now().strftime("%-d de %B de %Y") if os.name != 'nt' else datetime.now().strftime("%d de %B de %Y")
 
-    hoy_str = datetime.now().strftime("%-d de %B de %Y")
+    prompt = f"""Eres la voz del Oráculo del Tarot. Generá contenido para un YouTube Short de tarot para {signo['nombre']} con la carta "{card}".
 
-    if zodiac_key and zodiac_key in ZODIAC_SIGNS:
-        sign_info = ZODIAC_SIGNS[zodiac_key]
-        sign_name = sign_info["nombre"]
-        sign_emoji = sign_info["emoji"]
-
-        prompt = f"""Eres la voz del Oráculo del Tarot Gratis. Generá contenido para un video de YouTube Shorts
-de tarot para el signo {sign_name}, con la carta "{card}", para el {hoy_str}.
-
-Responde ÚNICAMENTE con JSON válido (sin markdown, sin backticks, sin texto extra):
+Respondé ÚNICAMENTE con JSON válido (sin markdown, sin backticks):
 {{
-  "title": "{sign_name.upper()} HOY | {card} | Tarot {hoy_str}",
-  "script": "guión para leer en voz alta (180-220 palabras, en español rioplatense, místico y personal, sin símbolos como asteriscos, emojis o corchetes)",
-  "description": "descripción del video para YouTube (150-200 chars, sin emojis)",
-  "tags": ["tarot {sign_name.lower()}", "tarot hoy {sign_name.lower()}", "{sign_name.lower()} hoy", "tarot gratis", "{card.lower()}", "lectura de tarot", "oraculo", "tarot diario"]
+  "title": "{signo['nombre'].upper()} HOY {signo['emoji']} | {card} | Tarot {hoy}",
+  "script": "guión de 160-180 palabras en español rioplatense, místico y personal",
+  "description": "descripción YouTube 150-200 chars con emojis para {signo['nombre']}",
+  "tags": ["tarot", "{signo['nombre'].lower()}", "tarot {signo['nombre'].lower()}", "horoscopo hoy", "lectura de tarot", "{card.lower()}", "tarot diario", "oráculo"]
 }}
 
 Reglas para el guión:
-- Empezar con: "{sign_name}, hoy el universo te envía un mensaje a través de {card}."
-- Explicar qué significa esta carta específicamente para {sign_name} hoy
-- Dar un mensaje de guía concreto para amor, trabajo o energía del día
-- Terminar con: "Para recibir tu lectura completa y personalizada, totalmente gratis, visitá tarotgratis punto online"
+- Empezar con: "{signo['emoji']} {signo['nombre']}, hoy el universo te habla a través de {card}."
+- Explicar qué significa esta carta específicamente para {signo['nombre']} (2 oraciones)
+- Un mensaje de guía concreto para hoy
+- Terminar con: "Para tu lectura completa y personalizada, totalmente gratis, visitá tarotgratis punto online"
 - Sonar natural al ser leído en voz alta
-- Usar español rioplatense (vos, sentís, visitá)
-- NO usar emojis ni símbolos especiales en ningún campo"""
-
-    else:
-        prompt = f"""Eres la voz del Oráculo del Tarot Gratis. Generá contenido para un video de YouTube Shorts
-sobre la carta "{card}" para el {hoy_str}.
-
-Responde ÚNICAMENTE con JSON válido (sin markdown, sin backticks, sin texto extra):
-{{
-  "title": "título llamativo para YouTube Shorts (máx 80 chars, incluye el nombre de la carta, sin emojis)",
-  "script": "guión para leer en voz alta (180-220 palabras, en español rioplatense, místico y personal, sin símbolos como asteriscos, emojis o corchetes)",
-  "description": "descripción del video para YouTube (150-200 chars, sin emojis)",
-  "tags": ["tarot", "lectura de tarot", "arcanos mayores", "{card.lower()}", "tarot diario", "espiritualidad", "oraculo", "tarot gratis"]
-}}
-
-Reglas para el guión:
-- Empezar con: "Hoy el universo te envía un mensaje a través de {card}."
-- Explicar el significado espiritual de la carta (2-3 oraciones)
-- Dar un mensaje de guía concreto para hoy
-- Terminar con: "Para recibir tu lectura completa y personalizada, totalmente gratis, visitá tarotgratis punto online"
-- Sonar natural al ser leído en voz alta
-- Usar español rioplatense (vos, sentís, visitá)
-- NO usar emojis ni símbolos especiales en ningún campo"""
+- Usar vos, sentís, visitá (rioplatense)"""
 
     resp = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.85,
-        max_tokens=700,
+        max_tokens=600,
     )
     raw = resp.choices[0].message.content.strip()
     raw = raw.replace("```json", "").replace("```", "").strip()
-
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
-        glyph = CARD_GLYPHS.get(card, "✨")
-        sign_label = f"{ZODIAC_SIGNS[zodiac_key]['nombre']} — " if zodiac_key else ""
         data = {
-            "title": f"{glyph} {sign_label}{card} — Tu mensaje del universo hoy",
-            "script": raw[:500],
-            "description": f"Lectura de tarot: {card}. Descubrí tu mensaje del día 🔮",
-            "tags": ["tarot", card.lower(), "tarot diario", "espiritualidad"],
+            "title": f"{signo['nombre'].upper()} HOY {signo['emoji']} | {card} | Tarot {hoy}",
+            "script": raw[:400],
+            "description": f"Tarot de hoy para {signo['nombre']}: {card} 🔮",
+            "tags": ["tarot", signo['nombre'].lower(), "tarot diario"],
         }
     return data
 
-# ── Google Cloud TTS ───────────────────────────────────────────────────────────
+
+# ── Google Cloud TTS ──────────────────────────────────────────────────────────
 def generate_voice(script: str, output_path: str) -> float:
     client = texttospeech.TextToSpeechClient()
     synthesis_input = texttospeech.SynthesisInput(text=script)
@@ -253,50 +211,41 @@ def generate_voice(script: str, output_path: str) -> float:
         volume_gain_db=1.0,
     )
     response = client.synthesize_speech(
-        input=synthesis_input,
-        voice=voice,
-        audio_config=audio_config,
+        input=synthesis_input, voice=voice, audio_config=audio_config,
     )
     Path(output_path).write_bytes(response.audio_content)
-    print(f"  Audio guardado: {output_path}")
     clip = AudioFileClip(output_path)
     duration = clip.duration
     clip.close()
     return duration
 
-# ── Pexels — fondos luminosos ──────────────────────────────────────────────────
-def download_pexels_video(output_path: str) -> bool:
+
+# ── Pexels ────────────────────────────────────────────────────────────────────
+def download_pexels_video(card: str, output_path: str) -> bool:
     api_key = os.environ["PEXELS_API_KEY"]
-    query   = random.choice(PEXELS_QUERIES_LIGHT)
-    print(f"  Buscando video Pexels luminoso: '{query}'...")
+    queries = CARD_PEXELS.get(card, DEFAULT_QUERIES)
+    query   = random.choice(queries)
+    print(f"   Pexels: '{query}'...")
 
-    resp = requests.get(
-        "https://api.pexels.com/videos/search",
-        headers={"Authorization": api_key},
-        params={"query": query, "per_page": 15, "size": "medium"},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    videos = resp.json().get("videos", [])
-
-    if not videos:
-        # Fallback seguro: luz dorada
+    for attempt_query in [query, "dark mystical purple", "night sky stars"]:
         resp = requests.get(
             "https://api.pexels.com/videos/search",
             headers={"Authorization": api_key},
-            params={"query": "sunny blue sky clouds daytime bright", "per_page": 10},
+            params={"query": attempt_query, "per_page": 10, "size": "medium"},
             timeout=30,
         )
+        resp.raise_for_status()
         videos = resp.json().get("videos", [])
+        if videos:
+            break
 
     if not videos:
         return False
 
-    video  = random.choice(videos[:8])
+    video  = random.choice(videos[:6])
     files  = sorted(video.get("video_files", []), key=lambda f: f.get("width", 0))
     chosen = next((f for f in reversed(files) if f.get("width", 9999) <= 1920), files[-1])
 
-    print(f"  Descargando {chosen.get('width')}x{chosen.get('height')}...")
     with requests.get(chosen["link"], stream=True, timeout=90) as r:
         r.raise_for_status()
         with open(output_path, "wb") as out:
@@ -304,190 +253,163 @@ def download_pexels_video(output_path: str) -> bool:
                 out.write(chunk)
     return True
 
-# ── Overlays PIL — estética clara y luminosa ───────────────────────────────────
 
-def _make_title_overlay(card_name: str, zodiac_key: str = None) -> np.ndarray:
-    """
-    Panel superior con fondo SOLIDO crema claro.
-    No depende del video de fondo — siempre queda luminoso.
-    El borde inferior hace fade hacia transparente para transicion suave.
-    """
-    w, h = VIDEO_W, 420
-
-    # Base solida crema — completamente opaca
-    img = Image.new("RGBA", (w, h), (*C_CREAM, 255))
-
-    # Fade en los ultimos 90px hacia transparente
-    fade_start = h - 90
-    pixels = img.load()
-    for y in range(fade_start, h):
-        alpha = int(255 * (1 - (y - fade_start) / 90))
-        for x_px in range(w):
-            r_px, g_px, b_px, _ = pixels[x_px, y]
-            pixels[x_px, y] = (r_px, g_px, b_px, alpha)
-
+# ── Overlays PIL ──────────────────────────────────────────────────────────────
+def _make_title_overlay(signo: dict, card: str) -> np.ndarray:
+    w, h = VIDEO_W, 320
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    bg  = Image.new("RGBA", (w, h))
+    for y in range(h):
+        alpha = int(210 * max(0, 1 - y / h * 1.3))
+        for x in range(w):
+            bg.putpixel((x, y), (*C_BG_DEEP, alpha))
+    img  = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
-    font_big, font_med, font_sm = _load_fonts(80, 50, 34)
 
-    GOLD_A    = (*C_GOLD, 255)
-    TEXT_DARK = (*C_TEXT_DARK, 240)
-    MUTED_A   = (*C_MUTED, 210)
-    LAV_A     = (*C_LAVENDER, 230)
-    line_margin = 80
+    font_big, font_med, font_sm = _load_fonts(54, 32, 22)
+    GOLD_A  = (*C_GOLD, 255)
+    MUTED_A = (*C_MUTED, 200)
 
-    # Linea decorativa dorada superior
-    draw.line([(line_margin, 28), (w - line_margin, 28)], fill=GOLD_A, width=2)
+    margin = 50
+    draw.line([(margin, 20), (w - margin, 20)], fill=GOLD_A, width=1)
 
-    if zodiac_key and zodiac_key in ZODIAC_SIGNS:
-        sign = ZODIAC_SIGNS[zodiac_key]
+    # Signo
+    signo_text = f"{signo['emoji']}  {signo['nombre'].upper()}  {signo['emoji']}"
+    bbox = draw.textbbox((0, 0), signo_text, font=font_big)
+    draw.text(((w - (bbox[2]-bbox[0])) // 2, 34), signo_text, font=font_big, fill=GOLD_A)
 
-        # Decorador texto del signo
-        deco = ZODIAC_SYMBOLS_TEXT.get(zodiac_key, "")
-        bbox = draw.textbbox((0, 0), deco, font=font_sm)
-        draw.text(((w - (bbox[2]-bbox[0])) // 2, 44), deco, font=font_sm, fill=GOLD_A)
+    # "HOY"
+    hoy_text = "✦  TAROT DE HOY  ✦"
+    bbox = draw.textbbox((0, 0), hoy_text, font=font_sm)
+    draw.text(((w - (bbox[2]-bbox[0])) // 2, 100), hoy_text, font=font_sm, fill=MUTED_A)
 
-        # Nombre del signo — oscuro sobre crema claro
-        sign_name = sign["nombre"].upper()
-        bbox = draw.textbbox((0, 0), sign_name, font=font_big)
-        tw = bbox[2] - bbox[0]
-        x  = (w - tw) // 2
-        draw.text((x + 2, 107), sign_name, font=font_big, fill=(180, 150, 120, 60))
-        draw.text((x, 104), sign_name, font=font_big, fill=TEXT_DARK)
+    # Carta
+    glyph = CARD_GLYPHS.get(card, "🔮")
+    card_text = f"{glyph}  {card}"
+    bbox = draw.textbbox((0, 0), card_text, font=font_med)
+    x = (w - (bbox[2]-bbox[0])) // 2
+    draw.text((x + 2, 138), card_text, font=font_med, fill=(0, 0, 0, 160))
+    draw.text((x, 136), card_text, font=font_med, fill=GOLD_A)
 
-        # Separador
-        sub = "- Tu carta de hoy -"
-        bbox = draw.textbbox((0, 0), sub, font=font_sm)
-        draw.text(((w - (bbox[2]-bbox[0])) // 2, 212), sub, font=font_sm, fill=MUTED_A)
-
-        # Nombre de la carta — lavanda sobre crema
-        bbox = draw.textbbox((0, 0), card_name, font=font_med)
-        tw = bbox[2] - bbox[0]
-        x  = (w - tw) // 2
-        draw.text((x + 2, 260), card_name, font=font_med, fill=(180, 150, 120, 50))
-        draw.text((x, 257), card_name, font=font_med, fill=LAV_A)
-
-    else:
-        sub = "- Tu carta del dia -"
-        bbox = draw.textbbox((0, 0), sub, font=font_sm)
-        draw.text(((w - (bbox[2]-bbox[0])) // 2, 48), sub, font=font_sm, fill=MUTED_A)
-
-        bbox = draw.textbbox((0, 0), card_name, font=font_big)
-        tw = bbox[2] - bbox[0]
-        x  = (w - tw) // 2
-        draw.text((x + 2, 142), card_name, font=font_big, fill=(180, 150, 120, 60))
-        draw.text((x, 139), card_name, font=font_big, fill=TEXT_DARK)
-
-    # Linea decorativa dorada inferior
-    draw.line([(line_margin, 343), (w - line_margin, 343)], fill=GOLD_A, width=2)
+    draw.line([(margin, 210), (w - margin, 210)], fill=GOLD_A, width=1)
 
     return np.array(img)
 
 
 def _make_cta_overlay() -> np.ndarray:
-    """
-    Panel CTA inferior — fondo solido crema claro con borde dorado.
-    Fade en el borde superior hacia transparente.
-    """
-    w, h = VIDEO_W, 220
-    img  = Image.new("RGBA", (w, h), (*C_CREAM, 255))
-
-    # Fade en los primeros 70px desde arriba: transparente -> solido
-    pixels = img.load()
-    for y in range(70):
-        alpha = int(255 * (y / 70))
-        for x_px in range(w):
-            r_px, g_px, b_px, _ = pixels[x_px, y]
-            pixels[x_px, y] = (r_px, g_px, b_px, alpha)
-
+    w, h = VIDEO_W, 180
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    bg  = Image.new("RGBA", (w, h))
+    for y in range(h):
+        alpha = int(220 * (y / h))
+        for x in range(w):
+            bg.putpixel((x, y), (int(C_BG_DEEP[0]*.6), int(C_BG_DEEP[1]*.6), int(C_BG_MID[2]*.8), alpha))
+    img  = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
-    font_big, font_med, font_sm = _load_fonts(56, 40, 30)
 
-    GOLD_A    = (*C_GOLD, 255)
-    TEXT_DARK = (*C_TEXT_DARK, 240)
-    MUTED_A   = (*C_MUTED, 210)
+    font_big, font_med, font_sm = _load_fonts(38, 28, 20)
+    GOLD_A  = (*C_GOLD, 255)
+    MUTED_A = (*C_MUTED, 200)
 
-    # Línea dorada superior
-    draw.line([(80, 18), (w - 80, 18)], fill=GOLD_A, width=2)
+    # Línea dorada
+    for x in range(w):
+        t = x / w
+        r = int(C_GOLD[0] + (C_GOLD_LIGHT[0]-C_GOLD[0]) * (1 - abs(t*2-1)))
+        g = int(C_GOLD[1] + (C_GOLD_LIGHT[1]-C_GOLD[1]) * (1 - abs(t*2-1)))
+        b = int(C_GOLD[2] + (C_GOLD_LIGHT[2]-C_GOLD[2]) * (1 - abs(t*2-1)))
+        draw.point((x, 12), fill=(r, g, b, 160))
 
-    # "Lectura gratis y personalizada"
-    line1 = "Lectura gratis y personalizada"
+    line1 = "🔮  Lectura gratis y personalizada"
     bbox  = draw.textbbox((0, 0), line1, font=font_sm)
-    draw.text(((w - (bbox[2]-bbox[0])) // 2, 38), line1, font=font_sm, fill=MUTED_A)
+    draw.text(((w-(bbox[2]-bbox[0]))//2, 28), line1, font=font_sm, fill=MUTED_A)
 
-    # "tarotgratis.online" — grande y oscuro
     line2 = "tarotgratis.online"
     bbox  = draw.textbbox((0, 0), line2, font=font_big)
-    x     = (w - (bbox[2]-bbox[0])) // 2
-    draw.text((x + 2, 108), line2, font=font_big, fill=(200, 200, 200, 80))  # sombra muy suave
-    draw.text((x, 105), line2, font=font_big, fill=TEXT_DARK)
+    x = (w-(bbox[2]-bbox[0]))//2
+    draw.text((x+2, 72), line2, font=font_big, fill=(0,0,0,160))
+    draw.text((x, 70), line2, font=font_big, fill=GOLD_A)
 
     return np.array(img)
 
-# ── Composición del video ──────────────────────────────────────────────────────
-def compose_video(
-    bg_video_path: str,
-    audio_path:    str,
-    card_name:     str,
-    output_path:   str,
-    zodiac_key:    str = None,
-) -> str:
-    print("  Cargando audio...")
+
+def _make_mid_cta_overlay() -> np.ndarray:
+    """CTA que aparece en el medio del video para llevar a la web."""
+    w, h = VIDEO_W, 100
+    img  = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    bg   = Image.new("RGBA", (w, h), (*C_BG_MID, 180))
+    img  = Image.alpha_composite(img, bg)
+    draw = ImageDraw.Draw(img)
+
+    font_big, font_med, font_sm = _load_fonts(28, 22, 18)
+    GOLD_A = (*C_GOLD, 255)
+
+    text = "¿Qué significa para vos? → tarotgratis.online"
+    bbox = draw.textbbox((0, 0), text, font=font_sm)
+    draw.text(((w-(bbox[2]-bbox[0]))//2, 36), text, font=font_sm, fill=GOLD_A)
+
+    return np.array(img)
+
+
+# ── Composición del video ─────────────────────────────────────────────────────
+def compose_video(bg_video_path, audio_path, signo, card, output_path):
     audio          = AudioFileClip(audio_path)
-    total_duration = audio.duration + 1.5
+    total_duration = audio.duration + 1.0
 
-    print("  Procesando video de fondo...")
     bg = VideoFileClip(bg_video_path, audio=False)
-
     if bg.duration < total_duration:
         loops = int(total_duration / bg.duration) + 2
-        bg    = concatenate_videoclips([bg.copy() for _ in range(loops)])
+        bg = concatenate_videoclips([bg.copy() for _ in range(loops)])
     bg = bg.subclip(0, total_duration)
 
-    # Escalar y recortar a 9:16
+    # Escalar a 720x1280
     bg_ratio     = bg.w / bg.h
     target_ratio = VIDEO_W / VIDEO_H
     if bg_ratio > target_ratio:
         bg = bg.resize(height=VIDEO_H)
-        bg = bg.crop(x_center=bg.w / 2, width=VIDEO_W)
+        bg = bg.crop(x_center=bg.w/2, width=VIDEO_W)
     else:
         bg = bg.resize(width=VIDEO_W)
-        bg = bg.crop(y_center=bg.h / 2, height=VIDEO_H)
+        bg = bg.crop(y_center=bg.h/2, height=VIDEO_H)
 
-    # ── Overlay MUY SUAVE (solo 18% de opacidad, tinte crema) ──────────────────
-    # Antes: ColorClip oscuro al 55% — hacía el video muy sombrío
-    # Ahora: tinte crema al 18% — realza los colores cálidos sin oscurecer
-    overlay = (
-        ColorClip(size=(VIDEO_W, VIDEO_H), color=list(OVERLAY_COLOR))
-        .set_opacity(OVERLAY_OPACITY)
+    dark = (
+        ColorClip(size=(VIDEO_W, VIDEO_H), color=list(C_BG_DEEP))
+        .set_opacity(0.52)
         .set_duration(total_duration)
     )
 
-    # Título — fade in a los 0.5s
-    title_arr  = _make_title_overlay(card_name, zodiac_key)
+    # Título arriba
     title_clip = (
-        ImageClip(title_arr)
-        .set_start(0.5)
-        .set_duration(total_duration - 0.5)
+        ImageClip(_make_title_overlay(signo, card))
+        .set_start(0.4)
+        .set_duration(total_duration - 0.4)
         .set_position(("center", 80))
-        .crossfadein(0.8)
+        .crossfadein(0.7)
     )
 
-    # CTA — aparece en los últimos 8 segundos
-    cta_arr   = _make_cta_overlay()
-    cta_start = max(1.0, total_duration - 8)
+    # CTA medio — aparece a mitad del video por 4 segundos
+    mid_start = total_duration * 0.45
+    mid_clip  = (
+        ImageClip(_make_mid_cta_overlay())
+        .set_start(mid_start)
+        .set_duration(4.0)
+        .set_position(("center", VIDEO_H // 2 - 50))
+        .crossfadein(0.8)
+        .crossfadeout(0.8)
+    )
+
+    # CTA final
+    cta_start = max(1.0, total_duration - 7)
     cta_clip  = (
-        ImageClip(cta_arr)
+        ImageClip(_make_cta_overlay())
         .set_start(cta_start)
         .set_duration(total_duration - cta_start)
-        .set_position(("center", VIDEO_H - 290))
-        .crossfadein(1.5)
+        .set_position(("center", VIDEO_H - 200))
+        .crossfadein(1.0)
     )
 
-    print("  Componiendo y exportando (tarda ~3-4 min)...")
     TEMP_DIR.mkdir(exist_ok=True)
-
     final = CompositeVideoClip(
-        [bg, overlay, title_clip, cta_clip],
+        [bg, dark, title_clip, mid_clip, cta_clip],
         size=(VIDEO_W, VIDEO_H),
     ).set_audio(audio)
 
@@ -497,69 +419,60 @@ def compose_video(
         fps=FPS,
         codec="libx264",
         audio_codec="aac",
-        temp_audiofile=str(TEMP_DIR / "tmp_audio.m4a"),
+        temp_audiofile=str(TEMP_DIR / f"tmp_{Path(output_path).stem}.m4a"),
         remove_temp=True,
         threads=2,
         preset="ultrafast",
         verbose=False,
         logger=None,
     )
-
     for clip in [audio, bg, final]:
         try: clip.close()
-        except Exception: pass
+        except: pass
 
     return output_path
 
-# ── Función principal ──────────────────────────────────────────────────────────
-def generate(card: str = None, zodiac_key: str = None) -> dict:
+
+# ── Función principal ─────────────────────────────────────────────────────────
+def generate(signo_idx: int) -> dict:
+    """Genera el video para un signo específico (0-11)."""
     OUTPUT_DIR.mkdir(exist_ok=True)
     TEMP_DIR.mkdir(exist_ok=True)
 
-    card  = card or get_card_of_day(zodiac_key)
+    signo = SIGNOS[signo_idx]
+    card  = get_card_for_sign(signo_idx)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    slug  = card.lower().replace(" ", "_")
+    slug  = f"{signo['nombre'].lower()}_{stamp}"
 
-    sign_label = ""
-    if zodiac_key and zodiac_key in ZODIAC_SIGNS:
-        sign_label = f" [{ZODIAC_SIGNS[zodiac_key]['nombre']}]"
+    print(f"\n{signo['emoji']}  {signo['nombre']} — {card}")
+    print("─" * 48)
 
-    print(f"\n🃏 Carta del día{sign_label}: {card}")
-    print("─" * 52)
+    print("📝  Generando guión...")
+    reading = generate_reading(signo, card)
+    print(f"    {reading['title']}")
 
-    # 1. Guión
-    print("📝 Generando guión con Groq...")
-    reading = generate_reading(card, zodiac_key)
-    print(f"  Título: {reading['title']}")
-
-    meta_path = TEMP_DIR / f"{stamp}_{slug}_meta.json"
-    meta_path.write_text(json.dumps(reading, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    # 2. Voz
-    audio_path = str(TEMP_DIR / f"{stamp}_{slug}.mp3")
-    print("🎙️ Generando voz con Google Cloud TTS...")
+    audio_path = str(TEMP_DIR / f"{slug}.mp3")
+    print("🎙️   Generando voz...")
     duration = generate_voice(reading["script"], audio_path)
-    print(f"  Duración: {duration:.1f}s")
+    print(f"    {duration:.1f}s")
 
-    # 3. Video de fondo
-    bg_path = str(TEMP_DIR / f"{stamp}_bg.mp4")
-    print("🎬 Descargando video de fondo luminoso (Pexels)...")
-    if not download_pexels_video(bg_path):
-        raise RuntimeError("No se pudo descargar el video de fondo de Pexels.")
+    bg_path = str(TEMP_DIR / f"{slug}_bg.mp4")
+    print("🎬  Descargando fondo Pexels...")
+    if not download_pexels_video(card, bg_path):
+        raise RuntimeError(f"No se pudo descargar fondo para {signo['nombre']}")
 
-    # 4. Composición
-    sign_suffix  = f"_{zodiac_key}" if zodiac_key else ""
-    output_path  = str(OUTPUT_DIR / f"{stamp}_{slug}{sign_suffix}.mp4")
-    print("🎞️ Componiendo video final...")
-    compose_video(bg_path, audio_path, card, output_path, zodiac_key)
+    output_path = str(OUTPUT_DIR / f"{slug}.mp4")
+    print("🎞️   Componiendo video...")
+    compose_video(bg_path, audio_path, signo, card, output_path)
 
-    print(f"\n✅ Video listo: {output_path}")
+    print(f"✅  {signo['nombre']} listo: {output_path}")
+
     return {
-        "video_path":  output_path,
-        "title":       reading["title"],
-        "description": reading["description"],
-        "tags":        reading["tags"],
-        "card":        card,
-        "zodiac_key":  zodiac_key,
-        "duration_s":  duration,
+        "video_path": output_path,
+        "title":      reading["title"],
+        "description":reading["description"],
+        "tags":       reading["tags"],
+        "signo":      signo["nombre"],
+        "card":       card,
+        "duration_s": duration,
     }
