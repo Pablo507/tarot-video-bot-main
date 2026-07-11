@@ -1,7 +1,6 @@
-name: 🔮 Publicar 12 videos de Tarot en YouTube
+name: 🔮 Publicar 6 videos de Tarot en YouTube
 
 on:
-  # Todos los días a las 14:00 UTC (11:00 AM Uruguay)
   schedule:
     - cron: "0 14 * * *"
 
@@ -15,32 +14,44 @@ on:
         description: "Subir como privado"
         type: boolean
         default: false
-      group:
-        description: "Solo un grupo (0-3) — vacío = todos"
+      force_group:
+        description: "Forzar grupo: A (Aries-Virgo) o B (Libra-Piscis) — vacío = automático"
         type: string
         default: ""
 
 jobs:
-  grupo-0:
+
+  grupo-A-0:
     name: "Aries - Tauro - Geminis"
     runs-on: ubuntu-latest
     timeout-minutes: 28
-    if: ${{ github.event.inputs.group == '' || github.event.inputs.group == '0' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
-      - name: Sistema
+      - name: Verificar grupo A (días pares)
+        id: check
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
+          DAY=$(date -u +%-d)
+          MOD=$((DAY % 2))
+          FORCE="${{ github.event.inputs.force_group }}"
+          if [ "$FORCE" = "A" ] || ([ "$FORCE" = "" ] && [ "$MOD" = "0" ]); then
+            echo "run=true" >> $GITHUB_OUTPUT
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Sistema
+        if: steps.check.outputs.run == 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
       - name: Dependencias
+        if: steps.check.outputs.run == 'true'
         run: |
           pip install -r requirements.txt
           python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt)"
       - name: Credenciales
+        if: steps.check.outputs.run == 'true'
         run: |
           echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
           echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
@@ -50,32 +61,44 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
           echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
       - name: Generar y publicar
+        if: steps.check.outputs.run == 'true'
         run: |
           CMD="python pipeline.py --group 0"
           [ "${{ github.event.inputs.dry_run }}" = "true" ] && CMD="$CMD --dry-run"
           [ "${{ github.event.inputs.private }}" = "true" ] && CMD="$CMD --private"
           eval $CMD
 
-  grupo-1:
+  grupo-A-1:
     name: "Cancer - Leo - Virgo"
     runs-on: ubuntu-latest
     timeout-minutes: 28
-    if: ${{ github.event.inputs.group == '' || github.event.inputs.group == '1' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
-      - name: Sistema
+      - name: Verificar grupo A (días pares)
+        id: check
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
+          DAY=$(date -u +%-d)
+          MOD=$((DAY % 2))
+          FORCE="${{ github.event.inputs.force_group }}"
+          if [ "$FORCE" = "A" ] || ([ "$FORCE" = "" ] && [ "$MOD" = "0" ]); then
+            echo "run=true" >> $GITHUB_OUTPUT
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Sistema
+        if: steps.check.outputs.run == 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
       - name: Dependencias
+        if: steps.check.outputs.run == 'true'
         run: |
           pip install -r requirements.txt
           python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt)"
       - name: Credenciales
+        if: steps.check.outputs.run == 'true'
         run: |
           echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
           echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
@@ -85,32 +108,44 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
           echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
       - name: Generar y publicar
+        if: steps.check.outputs.run == 'true'
         run: |
           CMD="python pipeline.py --group 1"
           [ "${{ github.event.inputs.dry_run }}" = "true" ] && CMD="$CMD --dry-run"
           [ "${{ github.event.inputs.private }}" = "true" ] && CMD="$CMD --private"
           eval $CMD
 
-  grupo-2:
+  grupo-B-2:
     name: "Libra - Escorpio - Sagitario"
     runs-on: ubuntu-latest
     timeout-minutes: 28
-    if: ${{ github.event.inputs.group == '' || github.event.inputs.group == '2' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
-      - name: Sistema
+      - name: Verificar grupo B (días impares)
+        id: check
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
+          DAY=$(date -u +%-d)
+          MOD=$((DAY % 2))
+          FORCE="${{ github.event.inputs.force_group }}"
+          if [ "$FORCE" = "B" ] || ([ "$FORCE" = "" ] && [ "$MOD" = "1" ]); then
+            echo "run=true" >> $GITHUB_OUTPUT
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Sistema
+        if: steps.check.outputs.run == 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
       - name: Dependencias
+        if: steps.check.outputs.run == 'true'
         run: |
           pip install -r requirements.txt
           python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt)"
       - name: Credenciales
+        if: steps.check.outputs.run == 'true'
         run: |
           echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
           echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
@@ -120,32 +155,44 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
           echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
       - name: Generar y publicar
+        if: steps.check.outputs.run == 'true'
         run: |
           CMD="python pipeline.py --group 2"
           [ "${{ github.event.inputs.dry_run }}" = "true" ] && CMD="$CMD --dry-run"
           [ "${{ github.event.inputs.private }}" = "true" ] && CMD="$CMD --private"
           eval $CMD
 
-  grupo-3:
+  grupo-B-3:
     name: "Capricornio - Acuario - Piscis"
     runs-on: ubuntu-latest
     timeout-minutes: 28
-    if: ${{ github.event.inputs.group == '' || github.event.inputs.group == '3' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
-      - name: Sistema
+      - name: Verificar grupo B (días impares)
+        id: check
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
+          DAY=$(date -u +%-d)
+          MOD=$((DAY % 2))
+          FORCE="${{ github.event.inputs.force_group }}"
+          if [ "$FORCE" = "B" ] || ([ "$FORCE" = "" ] && [ "$MOD" = "1" ]); then
+            echo "run=true" >> $GITHUB_OUTPUT
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Sistema
+        if: steps.check.outputs.run == 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
       - name: Dependencias
+        if: steps.check.outputs.run == 'true'
         run: |
           pip install -r requirements.txt
           python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt)"
       - name: Credenciales
+        if: steps.check.outputs.run == 'true'
         run: |
           echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
           echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
@@ -155,6 +202,7 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
           echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
       - name: Generar y publicar
+        if: steps.check.outputs.run == 'true'
         run: |
           CMD="python pipeline.py --group 3"
           [ "${{ github.event.inputs.dry_run }}" = "true" ] && CMD="$CMD --dry-run"
