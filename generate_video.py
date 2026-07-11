@@ -161,14 +161,14 @@ def generate_reading(signo: dict, card: str) -> dict:
 
 Respondé ÚNICAMENTE con JSON válido (sin markdown, sin backticks):
 {{
-  "title": "{signo['nombre'].upper()} HOY {signo['emoji']} | {card} | Tarot {hoy}",
+  "title": "{signo['nombre'].upper()} HOY | {card} | Tarot {hoy}",
   "script": "guión de 160-180 palabras en español rioplatense, místico y personal",
   "description": "descripción YouTube 150-200 chars con emojis para {signo['nombre']}",
   "tags": ["tarot", "{signo['nombre'].lower()}", "tarot {signo['nombre'].lower()}", "horoscopo hoy", "lectura de tarot", "{card.lower()}", "tarot diario", "oráculo"]
 }}
 
 Reglas para el guión:
-- Empezar con: "{signo['emoji']} {signo['nombre']}, hoy el universo te habla a través de {card}."
+- Empezar con: "{signo['nombre']}, hoy el universo te habla a través de {card}."
 - Explicar qué significa esta carta específicamente para {signo['nombre']} (2 oraciones)
 - Un mensaje de guía concreto para hoy
 - Terminar con: "Para tu lectura completa y personalizada, totalmente gratis, visitá tarotgratis punto online"
@@ -187,7 +187,7 @@ Reglas para el guión:
         data = json.loads(raw)
     except json.JSONDecodeError:
         data = {
-            "title": f"{signo['nombre'].upper()} HOY {signo['emoji']} | {card} | Tarot {hoy}",
+            "title": f"{signo['nombre'].upper()} HOY | {card} | Tarot {hoy}",
             "script": raw[:400],
             "description": f"Tarot de hoy para {signo['nombre']}: {card} 🔮",
             "tags": ["tarot", signo['nombre'].lower(), "tarot diario"],
@@ -256,42 +256,44 @@ def download_pexels_video(card: str, output_path: str) -> bool:
 
 # ── Overlays PIL ──────────────────────────────────────────────────────────────
 def _make_title_overlay(signo: dict, card: str) -> np.ndarray:
-    w, h = VIDEO_W, 320
+    """FIX: sin emojis (causan cuadrados), mayor contraste, fuentes mas grandes."""
+    w, h = VIDEO_W, 340
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     bg  = Image.new("RGBA", (w, h))
     for y in range(h):
-        alpha = int(210 * max(0, 1 - y / h * 1.3))
+        alpha = int(240 * max(0, 1 - (y / h) * 1.2))
         for x in range(w):
             bg.putpixel((x, y), (*C_BG_DEEP, alpha))
     img  = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
 
-    font_big, font_med, font_sm = _load_fonts(54, 32, 22)
+    font_big, font_med, font_sm = _load_fonts(60, 36, 26)
     GOLD_A  = (*C_GOLD, 255)
-    MUTED_A = (*C_MUTED, 200)
+    MUTED_A = (*C_MUTED, 230)
 
-    margin = 50
-    draw.line([(margin, 20), (w - margin, 20)], fill=GOLD_A, width=1)
+    margin = 40
+    draw.line([(margin, 18), (w - margin, 18)], fill=GOLD_A, width=2)
 
-    # Signo
-    signo_text = f"{signo['emoji']}  {signo['nombre'].upper()}  {signo['emoji']}"
+    # Nombre del signo — SIN emoji (DejaVu no los soporta, genera cuadrados)
+    signo_text = f"* {signo['nombre'].upper()} *"
     bbox = draw.textbbox((0, 0), signo_text, font=font_big)
-    draw.text(((w - (bbox[2]-bbox[0])) // 2, 34), signo_text, font=font_big, fill=GOLD_A)
+    x = (w - (bbox[2]-bbox[0])) // 2
+    draw.text((x+2, 32), signo_text, font=font_big, fill=(0, 0, 0, 200))
+    draw.text((x, 30), signo_text, font=font_big, fill=GOLD_A)
 
-    # "HOY"
-    hoy_text = "✦  TAROT DE HOY  ✦"
-    bbox = draw.textbbox((0, 0), hoy_text, font=font_sm)
-    draw.text(((w - (bbox[2]-bbox[0])) // 2, 100), hoy_text, font=font_sm, fill=MUTED_A)
+    # Subtitulo
+    sub = "- TAROT DE HOY -"
+    bbox = draw.textbbox((0, 0), sub, font=font_sm)
+    draw.text(((w-(bbox[2]-bbox[0]))//2, 106), sub, font=font_sm, fill=MUTED_A)
 
-    # Carta
-    glyph = CARD_GLYPHS.get(card, "🔮")
-    card_text = f"{glyph}  {card}"
+    # Carta — solo texto, sin emoji
+    card_text = card.upper()
     bbox = draw.textbbox((0, 0), card_text, font=font_med)
     x = (w - (bbox[2]-bbox[0])) // 2
-    draw.text((x + 2, 138), card_text, font=font_med, fill=(0, 0, 0, 160))
-    draw.text((x, 136), card_text, font=font_med, fill=GOLD_A)
+    draw.text((x+2, 150), card_text, font=font_med, fill=(0, 0, 0, 200))
+    draw.text((x, 148), card_text, font=font_med, fill=GOLD_A)
 
-    draw.line([(margin, 210), (w - margin, 210)], fill=GOLD_A, width=1)
+    draw.line([(margin, 226), (w - margin, 226)], fill=GOLD_A, width=2)
 
     return np.array(img)
 
@@ -319,33 +321,44 @@ def _make_cta_overlay() -> np.ndarray:
         b = int(C_GOLD[2] + (C_GOLD_LIGHT[2]-C_GOLD[2]) * (1 - abs(t*2-1)))
         draw.point((x, 12), fill=(r, g, b, 160))
 
-    line1 = "🔮  Lectura gratis y personalizada"
+    line1 = "Lectura gratis y personalizada"
     bbox  = draw.textbbox((0, 0), line1, font=font_sm)
-    draw.text(((w-(bbox[2]-bbox[0]))//2, 28), line1, font=font_sm, fill=MUTED_A)
+    draw.text(((w-(bbox[2]-bbox[0]))//2, 28), line1, font=font_sm, fill=(*C_TEXT, 230))
 
+    # URL grande, sombra, bien legible
     line2 = "tarotgratis.online"
     bbox  = draw.textbbox((0, 0), line2, font=font_big)
     x = (w-(bbox[2]-bbox[0]))//2
-    draw.text((x+2, 72), line2, font=font_big, fill=(0,0,0,160))
-    draw.text((x, 70), line2, font=font_big, fill=GOLD_A)
+    draw.text((x+3, 80), line2, font=font_big, fill=(0, 0, 0, 230))
+    draw.text((x, 77), line2, font=font_big, fill=GOLD_A)
 
     return np.array(img)
 
 
 def _make_mid_cta_overlay() -> np.ndarray:
-    """CTA que aparece en el medio del video para llevar a la web."""
-    w, h = VIDEO_W, 100
+    """FIX: fondo solido oscuro, 2 lineas, URL grande y legible."""
+    w, h = VIDEO_W, 150
     img  = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    bg   = Image.new("RGBA", (w, h), (*C_BG_MID, 180))
+    bg   = Image.new("RGBA", (w, h), (*C_BG_DEEP, 240))
     img  = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
 
-    font_big, font_med, font_sm = _load_fonts(28, 22, 18)
-    GOLD_A = (*C_GOLD, 255)
+    font_big, font_med, font_sm = _load_fonts(42, 28, 22)
+    GOLD_A  = (*C_GOLD, 255)
+    WHITE_A = (*C_TEXT, 240)
 
-    text = "¿Qué significa para vos? → tarotgratis.online"
-    bbox = draw.textbbox((0, 0), text, font=font_sm)
-    draw.text(((w-(bbox[2]-bbox[0]))//2, 36), text, font=font_sm, fill=GOLD_A)
+    draw.line([(30, 10), (w-30, 10)], fill=(*C_GOLD, 200), width=2)
+    draw.line([(30, h-10), (w-30, h-10)], fill=(*C_GOLD, 200), width=2)
+
+    l1 = "Tu lectura personalizada en"
+    bbox = draw.textbbox((0, 0), l1, font=font_sm)
+    draw.text(((w-(bbox[2]-bbox[0]))//2, 24), l1, font=font_sm, fill=WHITE_A)
+
+    l2 = "tarotgratis.online"
+    bbox = draw.textbbox((0, 0), l2, font=font_big)
+    x = (w-(bbox[2]-bbox[0]))//2
+    draw.text((x+2, 68), l2, font=font_big, fill=(0, 0, 0, 220))
+    draw.text((x, 65), l2, font=font_big, fill=GOLD_A)
 
     return np.array(img)
 
@@ -387,12 +400,12 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
     )
 
     # CTA medio — aparece a mitad del video por 4 segundos
-    mid_start = total_duration * 0.45
+    mid_start = total_duration * 0.50
     mid_clip  = (
         ImageClip(_make_mid_cta_overlay())
         .set_start(mid_start)
-        .set_duration(4.0)
-        .set_position(("center", VIDEO_H // 2 - 50))
+        .set_duration(5.0)
+        .set_position(("center", int(VIDEO_H * 0.62)))
         .crossfadein(0.8)
         .crossfadeout(0.8)
     )
