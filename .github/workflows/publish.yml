@@ -21,9 +21,8 @@ on:
         default: ""
 
 jobs:
-  # ── 4 jobs en paralelo — uno por grupo de 3 signos ──────────────────────────
   grupo-0:
-    name: "♈ Aries · ♉ Tauro · ♊ Géminis"
+    name: "Aries - Tauro - Geminis"
     runs-on: ubuntu-latest
     timeout-minutes: 28
     if: ${{ github.event.inputs.group == '' || github.event.inputs.group == '0' }}
@@ -58,7 +57,7 @@ jobs:
           eval $CMD
 
   grupo-1:
-    name: "♋ Cáncer · ♌ Leo · ♍ Virgo"
+    name: "Cancer - Leo - Virgo"
     runs-on: ubuntu-latest
     timeout-minutes: 28
     if: ${{ github.event.inputs.group == '' || github.event.inputs.group == '1' }}
@@ -93,7 +92,7 @@ jobs:
           eval $CMD
 
   grupo-2:
-    name: "♎ Libra · ♏ Escorpio · ♐ Sagitario"
+    name: "Libra - Escorpio - Sagitario"
     runs-on: ubuntu-latest
     timeout-minutes: 28
     if: ${{ github.event.inputs.group == '' || github.event.inputs.group == '2' }}
@@ -128,7 +127,7 @@ jobs:
           eval $CMD
 
   grupo-3:
-    name: "♑ Capricornio · ♒ Acuario · ♓ Piscis"
+    name: "Capricornio - Acuario - Piscis"
     runs-on: ubuntu-latest
     timeout-minutes: 28
     if: ${{ github.event.inputs.group == '' || github.event.inputs.group == '3' }}
