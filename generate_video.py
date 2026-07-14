@@ -293,7 +293,13 @@ def _make_title_overlay(signo: dict, card: str) -> np.ndarray:
     draw.text((x+2, 150), card_text, font=font_med, fill=(0, 0, 0, 200))
     draw.text((x, 148), card_text, font=font_med, fill=GOLD_A)
 
-    draw.line([(margin, 226), (w - margin, 226)], fill=GOLD_A, width=2)
+    # Separador dorado con degradado — igual a la línea ::before de los paneles
+    for xi in range(margin, w - margin):
+        t = (xi - margin) / (w - 2*margin)
+        intensity = 1 - abs(t*2-1)  # máximo en el centro
+        ga = int(200 * intensity)
+        draw.point((xi, 226), fill=(*C_GOLD, ga))
+    draw.point((w//2, 226), fill=(*C_GOLD_LIGHT, 255))  # destello central
 
     return np.array(img)
 
@@ -336,29 +342,56 @@ def _make_cta_overlay() -> np.ndarray:
 
 
 def _make_mid_cta_overlay() -> np.ndarray:
-    """FIX: fondo solido oscuro, 2 lineas, URL grande y legible."""
-    w, h = VIDEO_W, 150
+    """
+    CTA al 75% del video — panel glass oscuro al estilo de tarotgratis.online.
+    URL grande, dorada, con sombra. Dos líneas con borde dorado arriba y abajo.
+    """
+    w, h = VIDEO_W, 170
     img  = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    bg   = Image.new("RGBA", (w, h), (*C_BG_DEEP, 240))
-    img  = Image.alpha_composite(img, bg)
+
+    # Fondo glass oscuro — igual a los paneles de la web
+    bg = Image.new("RGBA", (w, h))
+    for y in range(h):
+        # Gradiente sutil de arriba a abajo
+        alpha = min(255, 230 + int(15 * (y / h)))
+        for x in range(w):
+            bg.putpixel((x, y), (*C_BG_DEEP, alpha))
+    img = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
 
-    font_big, font_med, font_sm = _load_fonts(42, 28, 22)
+    font_big, font_med, font_sm = _load_fonts(54, 32, 24)
     GOLD_A  = (*C_GOLD, 255)
-    WHITE_A = (*C_TEXT, 240)
+    WHITE_A = (*C_TEXT, 245)
 
-    draw.line([(30, 10), (w-30, 10)], fill=(*C_GOLD, 200), width=2)
-    draw.line([(30, h-10), (w-30, h-10)], fill=(*C_GOLD, 200), width=2)
+    # Línea dorada superior (estilo ::before de los paneles de la web)
+    for x in range(w):
+        t = x / w
+        r = int(C_GOLD[0] + (C_GOLD_LIGHT[0]-C_GOLD[0]) * (1 - abs(t*2-1)))
+        g = int(C_GOLD[1] + (C_GOLD_LIGHT[1]-C_GOLD[1]) * (1 - abs(t*2-1)))
+        b = int(C_GOLD[2] + (C_GOLD_LIGHT[2]-C_GOLD[2]) * (1 - abs(t*2-1)))
+        draw.point((x, 2), fill=(r, g, b, 220))
 
-    l1 = "Tu lectura personalizada en"
+    # Línea dorada inferior
+    for x in range(w):
+        t = x / w
+        r = int(C_GOLD[0] + (C_GOLD_LIGHT[0]-C_GOLD[0]) * (1 - abs(t*2-1)))
+        g = int(C_GOLD[1] + (C_GOLD_LIGHT[1]-C_GOLD[1]) * (1 - abs(t*2-1)))
+        b = int(C_GOLD[2] + (C_GOLD_LIGHT[2]-C_GOLD[2]) * (1 - abs(t*2-1)))
+        draw.point((x, h-3), fill=(r, g, b, 220))
+
+    # Línea 1 — texto pequeño blanco
+    l1 = "Lectura gratuita y personalizada:"
     bbox = draw.textbbox((0, 0), l1, font=font_sm)
-    draw.text(((w-(bbox[2]-bbox[0]))//2, 24), l1, font=font_sm, fill=WHITE_A)
+    draw.text(((w-(bbox[2]-bbox[0]))//2, 18), l1, font=font_sm, fill=WHITE_A)
 
+    # Línea 2 — URL grande dorada con sombra negra pronunciada
     l2 = "tarotgratis.online"
     bbox = draw.textbbox((0, 0), l2, font=font_big)
     x = (w-(bbox[2]-bbox[0]))//2
-    draw.text((x+2, 68), l2, font=font_big, fill=(0, 0, 0, 220))
-    draw.text((x, 65), l2, font=font_big, fill=GOLD_A)
+    # Sombra (desplazada 3px)
+    draw.text((x+3, 63), l2, font=font_big, fill=(0, 0, 0, 240))
+    # Texto dorado
+    draw.text((x, 60), l2, font=font_big, fill=GOLD_A)
 
     return np.array(img)
 
@@ -386,7 +419,7 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
 
     dark = (
         ColorClip(size=(VIDEO_W, VIDEO_H), color=list(C_BG_DEEP))
-        .set_opacity(0.52)
+        .set_opacity(0.58)
         .set_duration(total_duration)
     )
 
@@ -405,7 +438,7 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
         ImageClip(_make_mid_cta_overlay())
         .set_start(mid_start)
         .set_duration(5.0)
-        .set_position(("center", int(VIDEO_H * 0.62)))
+        .set_position(("center", int(VIDEO_H * 0.75)))
         .crossfadein(0.8)
         .crossfadeout(0.8)
     )
