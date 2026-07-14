@@ -275,14 +275,14 @@ def _make_title_overlay(signo: dict, card: str) -> np.ndarray:
     draw.line([(margin, 18), (w - margin, 18)], fill=GOLD_A, width=2)
 
     # Nombre del signo — SIN emoji (DejaVu no los soporta, genera cuadrados)
-    signo_text = f"* {signo['nombre'].upper()} *"
+    signo_text = f"-- {signo['nombre'].upper()} --"
     bbox = draw.textbbox((0, 0), signo_text, font=font_big)
     x = (w - (bbox[2]-bbox[0])) // 2
     draw.text((x+2, 32), signo_text, font=font_big, fill=(0, 0, 0, 200))
     draw.text((x, 30), signo_text, font=font_big, fill=GOLD_A)
 
     # Subtitulo
-    sub = "- TAROT DE HOY -"
+    sub = "== TAROT DE HOY =="
     bbox = draw.textbbox((0, 0), sub, font=font_sm)
     draw.text(((w-(bbox[2]-bbox[0]))//2, 106), sub, font=font_sm, fill=MUTED_A)
 
@@ -315,9 +315,9 @@ def _make_cta_overlay() -> np.ndarray:
     img  = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
 
-    font_big, font_med, font_sm = _load_fonts(38, 28, 20)
+    font_big, font_med, font_sm = _load_fonts(46, 30, 22)
     GOLD_A  = (*C_GOLD, 255)
-    MUTED_A = (*C_MUTED, 200)
+    WHITE_A = (*C_TEXT, 235)
 
     # Línea dorada
     for x in range(w):
@@ -329,7 +329,7 @@ def _make_cta_overlay() -> np.ndarray:
 
     line1 = "Lectura gratis y personalizada"
     bbox  = draw.textbbox((0, 0), line1, font=font_sm)
-    draw.text(((w-(bbox[2]-bbox[0]))//2, 28), line1, font=font_sm, fill=(*C_TEXT, 230))
+    draw.text(((w-(bbox[2]-bbox[0]))//2, 28), line1, font=font_sm, fill=WHITE_A)
 
     # URL grande, sombra, bien legible
     line2 = "tarotgratis.online"
@@ -433,12 +433,12 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
     )
 
     # CTA medio — aparece a mitad del video por 4 segundos
-    mid_start = total_duration * 0.50
+    mid_start = total_duration * 0.40
     mid_clip  = (
         ImageClip(_make_mid_cta_overlay())
         .set_start(mid_start)
-        .set_duration(5.0)
-        .set_position(("center", int(VIDEO_H * 0.75)))
+        .set_duration(6.0)
+        .set_position(("center", int(VIDEO_H * 0.55)))
         .crossfadein(0.8)
         .crossfadeout(0.8)
     )
@@ -449,7 +449,7 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
         ImageClip(_make_cta_overlay())
         .set_start(cta_start)
         .set_duration(total_duration - cta_start)
-        .set_position(("center", VIDEO_H - 200))
+        .set_position(("center", int(VIDEO_H * 0.68)))
         .crossfadein(1.0)
     )
 
