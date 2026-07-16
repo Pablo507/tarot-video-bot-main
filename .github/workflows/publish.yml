@@ -60,6 +60,7 @@ jobs:
           echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"             >> .env
           echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
           echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
+          echo "DRIVE_FOLDER_ID=${{ secrets.DRIVE_FOLDER_ID }}"           >> .env
       - name: Generar y publicar
         if: steps.check.outputs.run == 'true'
         run: |
@@ -107,6 +108,7 @@ jobs:
           echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"             >> .env
           echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
           echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
+          echo "DRIVE_FOLDER_ID=${{ secrets.DRIVE_FOLDER_ID }}"           >> .env
       - name: Generar y publicar
         if: steps.check.outputs.run == 'true'
         run: |
@@ -154,6 +156,7 @@ jobs:
           echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"             >> .env
           echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
           echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
+          echo "DRIVE_FOLDER_ID=${{ secrets.DRIVE_FOLDER_ID }}"           >> .env
       - name: Generar y publicar
         if: steps.check.outputs.run == 'true'
         run: |
@@ -201,6 +204,7 @@ jobs:
           echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"             >> .env
           echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
           echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
+          echo "DRIVE_FOLDER_ID=${{ secrets.DRIVE_FOLDER_ID }}"           >> .env
       - name: Generar y publicar
         if: steps.check.outputs.run == 'true'
         run: |
