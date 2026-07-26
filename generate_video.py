@@ -1,6 +1,7 @@
 """
 generate_video.py
-Genera videos de tarot por signo zodiacal (YouTube Shorts 9:16, 720p).
+Genera videos de tarot por signo zodiacal (YouTube Shorts / TikTok 9:16, 720p).
+Optimizado con la URL visible desde el fotograma 0 para máxima conversión en perfil.
 
 Stack:
   - Groq (Llama 3.3 70B)    → guión personalizado por signo
@@ -34,7 +35,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Resolución 720p (Shorts sigue siendo 9:16) ────────────────────────────────
+# ── Resolución 720p (Shorts / TikTok 9:16) ────────────────────────────────────
 VIDEO_W    = 720
 VIDEO_H    = 1280
 FPS        = 24
@@ -98,10 +99,10 @@ CARD_PEXELS = {
     "Los Enamorados":        ["couple sunset", "heart light bokeh", "love romance"],
     "El Carro":              ["road ahead night", "speed motion blur", "triumph victory"],
     "La Fuerza":             ["lion majestic", "strength nature", "powerful animal"],
-    "El Ermitaño":           ["lantern night dark", "solitude path fog", "mystical forest"],
+    "La Ermitaño":           ["lantern night dark", "solitude path fog", "mystical forest"],
     "La Rueda de la Fortuna":["spinning stars galaxy", "cosmic wheel", "universe rotation"],
     "La Justicia":           ["scales balance", "law justice", "symmetry architecture"],
-    "El Colgado":            ["water reflection", "hanging tree", "peaceful surrender"],
+    "La Colgado":            ["water reflection", "hanging tree", "peaceful surrender"],
     "La Muerte":             ["autumn leaves falling", "transformation dark", "rebirth nature"],
     "La Templanza":          ["water pour light", "balance zen", "flowing river"],
     "El Diablo":             ["fire dark flames", "smoke dramatic", "red dark abstract"],
@@ -118,7 +119,6 @@ DEFAULT_QUERIES = ["mystical dark purple", "night sky stars", "smoke dark backgr
 
 # ── Carta del día para cada signo ─────────────────────────────────────────────
 def get_card_for_sign(signo_idx: int) -> str:
-    """Cada signo tiene su propia carta del día basada en fecha + índice."""
     hoy = datetime.now()
     idx = (hoy.year + hoy.month + hoy.day + signo_idx * 7) % len(ARCANOS)
     return ARCANOS[idx]
@@ -254,52 +254,69 @@ def download_pexels_video(card: str, output_path: str) -> bool:
     return True
 
 
-# ── Overlays PIL ──────────────────────────────────────────────────────────────
+# ── Overlays PIL (Actualizado con URL visible desde el frame 0) ────────────────
 def _make_title_overlay(signo: dict, card: str) -> np.ndarray:
-    """FIX: sin emojis (causan cuadrados), mayor contraste, fuentes mas grandes."""
-    w, h = VIDEO_W, 340
+    """
+    Panel superior optimizado para aparecer desde el frame 0.
+    Incluye el Signo, la Carta del día Y la URL 'tarotgratis.online'
+    para capturar clics directos desde el thumbnail y los primeros 3 segundos.
+    """
+    w, h = VIDEO_W, 390
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     bg  = Image.new("RGBA", (w, h))
     for y in range(h):
-        alpha = int(180 * max(0, 1 - (y / h) * 1.1))
+        alpha = int(210 * max(0, 1 - (y / h) * 1.0))
         for x in range(w):
             bg.putpixel((x, y), (*C_BG_DEEP, alpha))
     img  = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
 
-    font_big, font_med, font_sm = _load_fonts(60, 36, 26)
+    font_sign, font_card, font_url = _load_fonts(50, 32, 42)
     GOLD_A  = (*C_GOLD, 255)
+    WHITE_A = (*C_TEXT, 240)
     MUTED_A = (*C_MUTED, 230)
 
     margin = 40
-    draw.line([(margin, 18), (w - margin, 18)], fill=GOLD_A, width=2)
+    draw.line([(margin, 16), (w - margin, 16)], fill=GOLD_A, width=2)
 
-    # Nombre del signo — SIN emoji (DejaVu no los soporta, genera cuadrados)
+    # 1. Nombre del signo
     signo_text = f"-- {signo['nombre'].upper()} --"
-    bbox = draw.textbbox((0, 0), signo_text, font=font_big)
+    bbox = draw.textbbox((0, 0), signo_text, font=font_sign)
     x = (w - (bbox[2]-bbox[0])) // 2
-    draw.text((x+2, 32), signo_text, font=font_big, fill=(0, 0, 0, 200))
-    draw.text((x, 30), signo_text, font=font_big, fill=GOLD_A)
+    draw.text((x+2, 28), signo_text, font=font_sign, fill=(0, 0, 0, 200))
+    draw.text((x, 26), signo_text, font=font_sign, fill=GOLD_A)
 
-    # Subtitulo
-    sub = "== TAROT DE HOY =="
-    bbox = draw.textbbox((0, 0), sub, font=font_sm)
-    draw.text(((w-(bbox[2]-bbox[0]))//2, 106), sub, font=font_sm, fill=MUTED_A)
-
-    # Carta — solo texto, sin emoji
+    # 2. Carta del día
     card_text = card.upper()
-    bbox = draw.textbbox((0, 0), card_text, font=font_med)
+    bbox = draw.textbbox((0, 0), card_text, font=font_card)
     x = (w - (bbox[2]-bbox[0])) // 2
-    draw.text((x+2, 150), card_text, font=font_med, fill=(0, 0, 0, 200))
-    draw.text((x, 148), card_text, font=font_med, fill=GOLD_A)
+    draw.text((x+2, 92), card_text, font=font_card, fill=(0, 0, 0, 200))
+    draw.text((x, 90), card_text, font=font_card, fill=WHITE_A)
 
-    # Separador dorado con degradado — igual a la línea ::before de los paneles
+    # Separador sutil
+    for xi in range(margin + 80, w - margin - 80):
+        draw.point((xi, 138), fill=(*C_GOLD, 140))
+
+    # 3. URL visible desde el frame 0 (clave para el thumbnail del grid y primeros 3s)
+    url_label = "Lectura gratis en:"
+    font_sm = _load_fonts(24, 24, 22)[2]
+    bbox = draw.textbbox((0, 0), url_label, font=font_sm)
+    draw.text(((w - (bbox[2]-bbox[0])) // 2, 150), url_label, font=font_sm, fill=MUTED_A)
+
+    url_text = "tarotgratis.online"
+    bbox = draw.textbbox((0, 0), url_text, font=font_url)
+    x = (w - (bbox[2]-bbox[0])) // 2
+    # Sombra para máxima legibilidad
+    draw.text((x+3, 183), url_text, font=font_url, fill=(0, 0, 0, 240))
+    draw.text((x, 180), url_text, font=font_url, fill=GOLD_A)
+
+    # Línea dorada inferior con destello central
     for xi in range(margin, w - margin):
         t = (xi - margin) / (w - 2*margin)
-        intensity = 1 - abs(t*2-1)  # máximo en el centro
-        ga = int(200 * intensity)
-        draw.point((xi, 226), fill=(*C_GOLD, ga))
-    draw.point((w//2, 226), fill=(*C_GOLD_LIGHT, 255))  # destello central
+        intensity = 1 - abs(t*2-1)
+        ga = int(210 * intensity)
+        draw.point((xi, 246), fill=(*C_GOLD, ga))
+    draw.point((w//2, 246), fill=(*C_GOLD_LIGHT, 255))
 
     return np.array(img)
 
@@ -319,7 +336,6 @@ def _make_cta_overlay() -> np.ndarray:
     GOLD_A  = (*C_GOLD, 255)
     WHITE_A = (*C_TEXT, 235)
 
-    # Línea dorada
     for x in range(w):
         t = x / w
         r = int(C_GOLD[0] + (C_GOLD_LIGHT[0]-C_GOLD[0]) * (1 - abs(t*2-1)))
@@ -331,7 +347,6 @@ def _make_cta_overlay() -> np.ndarray:
     bbox  = draw.textbbox((0, 0), line1, font=font_sm)
     draw.text(((w-(bbox[2]-bbox[0]))//2, 28), line1, font=font_sm, fill=WHITE_A)
 
-    # URL grande, sombra, bien legible
     line2 = "tarotgratis.online"
     bbox  = draw.textbbox((0, 0), line2, font=font_big)
     x = (w-(bbox[2]-bbox[0]))//2
@@ -342,17 +357,11 @@ def _make_cta_overlay() -> np.ndarray:
 
 
 def _make_mid_cta_overlay() -> np.ndarray:
-    """
-    CTA al 75% del video — panel glass oscuro al estilo de tarotgratis.online.
-    URL grande, dorada, con sombra. Dos líneas con borde dorado arriba y abajo.
-    """
     w, h = VIDEO_W, 170
     img  = Image.new("RGBA", (w, h), (0, 0, 0, 0))
 
-    # Fondo glass oscuro — igual a los paneles de la web
     bg = Image.new("RGBA", (w, h))
     for y in range(h):
-        # Gradiente sutil de arriba a abajo
         alpha = min(210, 170 + int(40 * (y / h)))
         for x in range(w):
             bg.putpixel((x, y), (*C_BG_DEEP, alpha))
@@ -363,7 +372,6 @@ def _make_mid_cta_overlay() -> np.ndarray:
     GOLD_A  = (*C_GOLD, 255)
     WHITE_A = (*C_TEXT, 245)
 
-    # Línea dorada superior (estilo ::before de los paneles de la web)
     for x in range(w):
         t = x / w
         r = int(C_GOLD[0] + (C_GOLD_LIGHT[0]-C_GOLD[0]) * (1 - abs(t*2-1)))
@@ -371,7 +379,6 @@ def _make_mid_cta_overlay() -> np.ndarray:
         b = int(C_GOLD[2] + (C_GOLD_LIGHT[2]-C_GOLD[2]) * (1 - abs(t*2-1)))
         draw.point((x, 2), fill=(r, g, b, 220))
 
-    # Línea dorada inferior
     for x in range(w):
         t = x / w
         r = int(C_GOLD[0] + (C_GOLD_LIGHT[0]-C_GOLD[0]) * (1 - abs(t*2-1)))
@@ -379,18 +386,14 @@ def _make_mid_cta_overlay() -> np.ndarray:
         b = int(C_GOLD[2] + (C_GOLD_LIGHT[2]-C_GOLD[2]) * (1 - abs(t*2-1)))
         draw.point((x, h-3), fill=(r, g, b, 220))
 
-    # Línea 1 — texto pequeño blanco
     l1 = "Lectura gratuita y personalizada:"
     bbox = draw.textbbox((0, 0), l1, font=font_sm)
     draw.text(((w-(bbox[2]-bbox[0]))//2, 18), l1, font=font_sm, fill=WHITE_A)
 
-    # Línea 2 — URL grande dorada con sombra negra pronunciada
     l2 = "tarotgratis.online"
     bbox = draw.textbbox((0, 0), l2, font=font_big)
     x = (w-(bbox[2]-bbox[0]))//2
-    # Sombra (desplazada 3px)
     draw.text((x+3, 63), l2, font=font_big, fill=(0, 0, 0, 240))
-    # Texto dorado
     draw.text((x, 60), l2, font=font_big, fill=GOLD_A)
 
     return np.array(img)
@@ -407,7 +410,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
         bg = concatenate_videoclips([bg.copy() for _ in range(loops)])
     bg = bg.subclip(0, total_duration)
 
-    # Escalar a 720x1280
     bg_ratio     = bg.w / bg.h
     target_ratio = VIDEO_W / VIDEO_H
     if bg_ratio > target_ratio:
@@ -417,36 +419,33 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
         bg = bg.resize(width=VIDEO_W)
         bg = bg.crop(y_center=bg.h/2, height=VIDEO_H)
 
-    # Overlay oscuro suave — deja ver el fondo
     dark = (
         ColorClip(size=(VIDEO_W, VIDEO_H), color=list(C_BG_DEEP))
         .set_opacity(0.30)
         .set_duration(total_duration)
     )
 
-    # Tinte púrpura — igual al gradiente nebuloso de la web (#822bbd)
     purple_tint = (
         ColorClip(size=(VIDEO_W, VIDEO_H), color=list(C_PURPLE))
         .set_opacity(0.18)
         .set_duration(total_duration)
     )
 
-    # Título arriba
+    # Título principal con URL visible desde el segundo 0 (Frame 0 -> Thumbnail y primeros 3s)
     title_clip = (
         ImageClip(_make_title_overlay(signo, card))
-        .set_start(0.4)
-        .set_duration(total_duration - 0.4)
-        .set_position(("center", 80))
-        .crossfadein(0.7)
+        .set_start(0.0)
+        .set_duration(total_duration)
+        .set_position(("center", 60))
     )
 
-    # CTA medio — aparece a mitad del video por 4 segundos
+    # CTA medio — aparece a mitad del video por 6 segundos
     mid_start = total_duration * 0.40
     mid_clip  = (
         ImageClip(_make_mid_cta_overlay())
         .set_start(mid_start)
         .set_duration(6.0)
-        .set_position(("center", int(VIDEO_H * 0.55)))
+        .set_position(("center", int(VIDEO_H * 0.58)))
         .crossfadein(0.8)
         .crossfadeout(0.8)
     )
@@ -457,7 +456,7 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
         ImageClip(_make_cta_overlay())
         .set_start(cta_start)
         .set_duration(total_duration - cta_start)
-        .set_position(("center", int(VIDEO_H * 0.68)))
+        .set_position(("center", int(VIDEO_H * 0.70)))
         .crossfadein(1.0)
     )
 
@@ -489,7 +488,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
 
 # ── Función principal ─────────────────────────────────────────────────────────
 def generate(signo_idx: int) -> dict:
-    """Genera el video para un signo específico (0-11)."""
     OUTPUT_DIR.mkdir(exist_ok=True)
     TEMP_DIR.mkdir(exist_ok=True)
 
@@ -516,7 +514,7 @@ def generate(signo_idx: int) -> dict:
         raise RuntimeError(f"No se pudo descargar fondo para {signo['nombre']}")
 
     output_path = str(OUTPUT_DIR / f"{slug}.mp4")
-    print("🎞️   Componiendo video...")
+    print("🎞️   Componiendo video con URL visible desde el frame 0...")
     compose_video(bg_path, audio_path, signo, card, output_path)
 
     print(f"✅  {signo['nombre']} listo: {output_path}")
