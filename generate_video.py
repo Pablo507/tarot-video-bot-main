@@ -176,7 +176,7 @@ Reglas para el guión:
 - Usar vos, sentís, visitá (rioplatense)"""
 
     resp = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-20b",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.85,
         max_tokens=600,
