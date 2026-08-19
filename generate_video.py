@@ -4,7 +4,7 @@ Genera videos de tarot por signo zodiacal (YouTube Shorts / TikTok 9:16, 720p).
 Optimizado con la URL visible desde el fotograma 0 para máxima conversión en perfil.
 
 Stack:
-  - Groq (Llama 3.3 70B)    → guión personalizado por signo
+  - Groq (openai/gpt-oss-120b) → guión personalizado y extendido por signo
   - Google Cloud TTS         → voz en español Neural2
   - Pexels API               → fondo específico por carta
   - MoviePy + PIL            → composición 720x1280 (720p Shorts)
@@ -88,7 +88,6 @@ CARD_GLYPHS = {
     "La Luna": "🌙", "El Sol": "☀️", "El Juicio": "🎺", "El Mundo": "🌍",
 }
 
-# Pexels queries específicos por carta
 CARD_PEXELS = {
     "El Loco":               ["adventure path nature", "freedom road", "leap cliff"],
     "El Mago":               ["mystical candle purple", "magic ritual dark", "crystal ball"],
@@ -117,14 +116,12 @@ CARD_PEXELS = {
 DEFAULT_QUERIES = ["mystical dark purple", "night sky stars", "smoke dark background"]
 
 
-# ── Carta del día para cada signo ─────────────────────────────────────────────
 def get_card_for_sign(signo_idx: int) -> str:
     hoy = datetime.now()
     idx = (hoy.year + hoy.month + hoy.day + signo_idx * 7) % len(ARCANOS)
     return ARCANOS[idx]
 
 
-# ── Fuentes ───────────────────────────────────────────────────────────────────
 def _load_fonts(size_large, size_medium, size_small):
     bold_candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
@@ -152,34 +149,32 @@ def _load_fonts(size_large, size_medium, size_small):
     )
 
 
-# ── Guión con Groq ────────────────────────────────────────────────────────────
+# ── Guión extendido con Groq (openai/gpt-oss-120b) ─────────────────────────────
 def generate_reading(signo: dict, card: str) -> dict:
     client = Groq(api_key=os.environ["GROQ_API_KEY"])
     hoy = datetime.now().strftime("%-d de %B de %Y") if os.name != 'nt' else datetime.now().strftime("%d de %B de %Y")
 
-    prompt = f"""Eres la voz del Oráculo del Tarot. Generá contenido para un YouTube Short de tarot para {signo['nombre']} con la carta "{card}".
+    prompt = f"""Eres la voz del Oráculo del Tarot. Generá un guión extenso y detallado para un YouTube Short de tarot para {signo['nombre']} con la carta "{card}".
 
 Respondé ÚNICAMENTE con JSON válido (sin markdown, sin backticks):
 {{
   "title": "{signo['nombre'].upper()} HOY | {card} | Tarot {hoy}",
-  "script": "guión de 160-180 palabras en español rioplatense, místico y personal",
+  "script": "guión extenso de 80 a 100 palabras en español rioplatense, místico, reflexivo y personal",
   "description": "descripción YouTube 150-200 chars con emojis para {signo['nombre']}",
   "tags": ["tarot", "{signo['nombre'].lower()}", "tarot {signo['nombre'].lower()}", "horoscopo hoy", "lectura de tarot", "{card.lower()}", "tarot diario", "oráculo"]
 }}
 
 Reglas para el guión:
-- Empezar con: "{signo['nombre']}, hoy el universo te habla a través de {card}."
-- Explicar qué significa esta carta específicamente para {signo['nombre']} (2 oraciones)
-- Un mensaje de guía concreto para hoy
-- Terminar con: "Para tu lectura completa y personalizada, totalmente gratis, visitá tarotgratis punto online"
-- Sonar natural al ser leído en voz alta
-- Usar vos, sentís, visitá (rioplatense)"""
+- Empezar saludando a {signo['nombre']} y nombrando la carta {card}.
+- Desarrollar un mensaje profundo sobre el amor, la energía del día y un consejo clave (mínimo 4 oraciones bien desarrolladas para asegurar una duración de audio cercana a los 30-40 segundos).
+- Terminar estrictamente con: "Para tu lectura completa y personalizada, totalmente gratis, visitá tarotgratis punto online"
+- Sonar natural, cálido y usar voseo (vos, sentís, visitá)."""
 
     resp = client.chat.completions.create(
-        model="openai/gpt-oss-20b",
+        model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.85,
-        max_tokens=600,
+        max_tokens=900,
     )
     raw = resp.choices[0].message.content.strip()
     raw = raw.replace("```json", "").replace("```", "").strip()
@@ -188,14 +183,13 @@ Reglas para el guión:
     except json.JSONDecodeError:
         data = {
             "title": f"{signo['nombre'].upper()} HOY | {card} | Tarot {hoy}",
-            "script": raw[:400],
+            "script": raw[:800],
             "description": f"Tarot de hoy para {signo['nombre']}: {card} 🔮",
             "tags": ["tarot", signo['nombre'].lower(), "tarot diario"],
         }
     return data
 
 
-# ── Google Cloud TTS ──────────────────────────────────────────────────────────
 def generate_voice(script: str, output_path: str) -> float:
     client = texttospeech.TextToSpeechClient()
     synthesis_input = texttospeech.SynthesisInput(text=script)
@@ -206,7 +200,7 @@ def generate_voice(script: str, output_path: str) -> float:
     )
     audio_config = texttospeech.AudioConfig(
         audio_encoding=texttospeech.AudioEncoding.MP3,
-        speaking_rate=0.90,
+        speaking_rate=0.90,  # Velocidad pausada y ceremonial
         pitch=-1.0,
         volume_gain_db=1.0,
     )
@@ -220,7 +214,6 @@ def generate_voice(script: str, output_path: str) -> float:
     return duration
 
 
-# ── Pexels ────────────────────────────────────────────────────────────────────
 def download_pexels_video(card: str, output_path: str) -> bool:
     api_key = os.environ["PEXELS_API_KEY"]
     queries = CARD_PEXELS.get(card, DEFAULT_QUERIES)
@@ -254,13 +247,7 @@ def download_pexels_video(card: str, output_path: str) -> bool:
     return True
 
 
-# ── Overlays PIL (Actualizado con URL visible desde el frame 0) ────────────────
 def _make_title_overlay(signo: dict, card: str) -> np.ndarray:
-    """
-    Panel superior optimizado para aparecer desde el frame 0.
-    Incluye el Signo, la Carta del día Y la URL 'tarotgratis.online'
-    para capturar clics directos desde el thumbnail y los primeros 3 segundos.
-    """
     w, h = VIDEO_W, 390
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     bg  = Image.new("RGBA", (w, h))
@@ -279,25 +266,21 @@ def _make_title_overlay(signo: dict, card: str) -> np.ndarray:
     margin = 40
     draw.line([(margin, 16), (w - margin, 16)], fill=GOLD_A, width=2)
 
-    # 1. Nombre del signo
     signo_text = f"-- {signo['nombre'].upper()} --"
     bbox = draw.textbbox((0, 0), signo_text, font=font_sign)
     x = (w - (bbox[2]-bbox[0])) // 2
     draw.text((x+2, 28), signo_text, font=font_sign, fill=(0, 0, 0, 200))
     draw.text((x, 26), signo_text, font=font_sign, fill=GOLD_A)
 
-    # 2. Carta del día
     card_text = card.upper()
     bbox = draw.textbbox((0, 0), card_text, font=font_card)
     x = (w - (bbox[2]-bbox[0])) // 2
     draw.text((x+2, 92), card_text, font=font_card, fill=(0, 0, 0, 200))
     draw.text((x, 90), card_text, font=font_card, fill=WHITE_A)
 
-    # Separador sutil
     for xi in range(margin + 80, w - margin - 80):
         draw.point((xi, 138), fill=(*C_GOLD, 140))
 
-    # 3. URL visible desde el frame 0 (clave para el thumbnail del grid y primeros 3s)
     url_label = "Lectura gratis en:"
     font_sm = _load_fonts(24, 24, 22)[2]
     bbox = draw.textbbox((0, 0), url_label, font=font_sm)
@@ -306,11 +289,9 @@ def _make_title_overlay(signo: dict, card: str) -> np.ndarray:
     url_text = "tarotgratis.online"
     bbox = draw.textbbox((0, 0), url_text, font=font_url)
     x = (w - (bbox[2]-bbox[0])) // 2
-    # Sombra para máxima legibilidad
     draw.text((x+3, 183), url_text, font=font_url, fill=(0, 0, 0, 240))
     draw.text((x, 180), url_text, font=font_url, fill=GOLD_A)
 
-    # Línea dorada inferior con destello central
     for xi in range(margin, w - margin):
         t = (xi - margin) / (w - 2*margin)
         intensity = 1 - abs(t*2-1)
@@ -399,7 +380,6 @@ def _make_mid_cta_overlay() -> np.ndarray:
     return np.array(img)
 
 
-# ── Composición del video ─────────────────────────────────────────────────────
 def compose_video(bg_video_path, audio_path, signo, card, output_path):
     audio          = AudioFileClip(audio_path)
     total_duration = audio.duration + 1.0
@@ -431,7 +411,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
         .set_duration(total_duration)
     )
 
-    # Título principal con URL visible desde el segundo 0 (Frame 0 -> Thumbnail y primeros 3s)
     title_clip = (
         ImageClip(_make_title_overlay(signo, card))
         .set_start(0.0)
@@ -439,7 +418,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
         .set_position(("center", 60))
     )
 
-    # CTA medio — aparece a mitad del video por 6 segundos
     mid_start = total_duration * 0.40
     mid_clip  = (
         ImageClip(_make_mid_cta_overlay())
@@ -450,7 +428,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
         .crossfadeout(0.8)
     )
 
-    # CTA final
     cta_start = max(1.0, total_duration - 7)
     cta_clip  = (
         ImageClip(_make_cta_overlay())
@@ -486,7 +463,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
     return output_path
 
 
-# ── Función principal ─────────────────────────────────────────────────────────
 def generate(signo_idx: int) -> dict:
     OUTPUT_DIR.mkdir(exist_ok=True)
     TEMP_DIR.mkdir(exist_ok=True)
