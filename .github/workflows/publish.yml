@@ -1,9 +1,6 @@
 name: 🔮 Publicar 6 videos de Tarot en YouTube
 
 on:
-  schedule:
-    - cron: "17 6 * * *"
-
   workflow_dispatch:
     inputs:
       dry_run:
@@ -34,7 +31,7 @@ jobs:
       - name: Verificar grupo A (días pares)
         id: check
         run: |
-          DAY=$(date -u +%-d)
+          DAY=$(TZ="America/Montevideo" date +%-d)
           MOD=$((DAY % 2))
           FORCE="${{ github.event.inputs.force_group }}"
           if [ "$FORCE" = "A" ] || ([ "$FORCE" = "" ] && [ "$MOD" = "0" ]); then
@@ -81,7 +78,7 @@ jobs:
       - name: Verificar grupo A (días pares)
         id: check
         run: |
-          DAY=$(date -u +%-d)
+          DAY=$(TZ="America/Montevideo" date +%-d)
           MOD=$((DAY % 2))
           FORCE="${{ github.event.inputs.force_group }}"
           if [ "$FORCE" = "A" ] || ([ "$FORCE" = "" ] && [ "$MOD" = "0" ]); then
@@ -128,7 +125,7 @@ jobs:
       - name: Verificar grupo B (días impares)
         id: check
         run: |
-          DAY=$(date -u +%-d)
+          DAY=$(TZ="America/Montevideo" date +%-d)
           MOD=$((DAY % 2))
           FORCE="${{ github.event.inputs.force_group }}"
           if [ "$FORCE" = "B" ] || ([ "$FORCE" = "" ] && [ "$MOD" = "1" ]); then
@@ -175,7 +172,7 @@ jobs:
       - name: Verificar grupo B (días impares)
         id: check
         run: |
-          DAY=$(date -u +%-d)
+          DAY=$(TZ="America/Montevideo" date +%-d)
           MOD=$((DAY % 2))
           FORCE="${{ github.event.inputs.force_group }}"
           if [ "$FORCE" = "B" ] || ([ "$FORCE" = "" ] && [ "$MOD" = "1" ]); then
