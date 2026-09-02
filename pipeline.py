@@ -9,6 +9,9 @@ Uso:
   python pipeline.py --group 2   # Libra, Escorpio, Sagitario
   python pipeline.py --group 3   # Capricornio, Acuario, Piscis
   python pipeline.py --group 0 --dry-run   # solo genera, no sube
+  python pipeline.py --group 0 --cta paid  # con CTA de pago
+  python pipeline.py --group 0 --cta free  # con CTA gratuita
+  python pipeline.py --group 0 --cta none  # sin CTA extra
 """
 
 import argparse
@@ -38,6 +41,8 @@ def main():
     parser.add_argument("--group",   type=int, required=True, choices=[0,1,2,3])
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--private", action="store_true")
+    parser.add_argument("--cta", type=str, choices=["none", "free", "paid"], default="none",
+                        help="Tipo de CTA: none (solo lectura), free (link gratis), paid ($4.99/mes)")
     args = parser.parse_args()
 
     indices = GROUPS[args.group]
@@ -46,6 +51,7 @@ def main():
     print("\n" + "=" * 54)
     print(f"  🔮  TAROT BOT — Grupo {args.group}: {', '.join(nombres)}")
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  CTA: {args.cta}")
     if args.dry_run:
         print("  Modo: DRY RUN")
     print("=" * 54)
@@ -63,7 +69,7 @@ def main():
     for idx in indices:
         nombre = SIGNOS_NOMBRES[idx]
         try:
-            result = generate(signo_idx=idx)
+            result = generate(signo_idx=idx, cta_type=args.cta)
             results.append(result)
 
             if not args.dry_run:
@@ -105,6 +111,7 @@ def main():
         "timestamp": datetime.now().isoformat(),
         "group":     args.group,
         "signos":    nombres,
+        "cta_type":  args.cta,
         "results":   results,
         "errors":    errors,
     }
@@ -123,4 +130,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

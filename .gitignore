@@ -1,9 +1,28 @@
+# Credenciales y secretos
 .env
 client_secrets.json
 token.json
 tts_credentials.json
+
+# Carpetas de salida
 output_videos/
 temp/
 venv/
+
+# Archivos de Python
 __pycache__/
 *.pyc
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log

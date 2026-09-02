@@ -385,7 +385,79 @@ def _make_mid_cta_overlay() -> np.ndarray:
     return np.array(img)
 
 
-def compose_video(bg_video_path, audio_path, signo, card, output_path):
+# ===== NUEVOS OVERLAYS PARA CTA DOSIFICADA =====
+
+def _make_free_overlay() -> np.ndarray:
+    """Overlay para oferta gratuita (lead magnet)"""
+    w, h = VIDEO_W, 180
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    
+    bg = Image.new("RGBA", (w, h))
+    for y in range(h):
+        alpha = int(220 * (y / h))
+        for x in range(w):
+            bg.putpixel((x, y), (*C_BG_DEEP, alpha))
+    img = Image.alpha_composite(img, bg)
+    draw = ImageDraw.Draw(img)
+    
+    font_big, font_med, font_sm = _load_fonts(40, 28, 20)
+    
+    line1 = "📲 Descarga tu carta gratis en:"
+    bbox = draw.textbbox((0, 0), line1, font=font_sm)
+    draw.text(((w-(bbox[2]-bbox[0]))//2, 20), line1, font=font_sm, fill=(*C_TEXT,240))
+    
+    url = "tarotgratis.online"
+    bbox = draw.textbbox((0, 0), url, font=font_big)
+    x = (w-(bbox[2]-bbox[0]))//2
+    draw.text((x+2, 70), url, font=font_big, fill=(0,0,0,240))
+    draw.text((x, 68), url, font=font_big, fill=(*C_GOLD,255))
+    
+    return np.array(img)
+
+
+def _make_pricing_overlay() -> np.ndarray:
+    """Overlay de precio y CTA al final"""
+    w, h = VIDEO_W, 280
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    
+    bg = Image.new("RGBA", (w, h))
+    for y in range(h):
+        alpha = int(220 * (y / h))
+        for x in range(w):
+            bg.putpixel((x, y), (*C_BG_DEEP, alpha))
+    img = Image.alpha_composite(img, bg)
+    draw = ImageDraw.Draw(img)
+    
+    font_big, font_med, font_sm = _load_fonts(52, 34, 24)
+    
+    # Precio destacado
+    precio = "$4.99 USD / mes"
+    bbox = draw.textbbox((0, 0), precio, font=font_big)
+    x = (w-(bbox[2]-bbox[0]))//2
+    draw.text((x+2, 20), precio, font=font_big, fill=(0,0,0,240))
+    draw.text((x, 18), precio, font=font_big, fill=(*C_GOLD,255))
+    
+    # Beneficios
+    beneficios = [
+        "📲 Carta del día en tu WhatsApp",
+        "🔮 Interpretación personalizada por IA",
+        "🔄 Cancela cuando quieras"
+    ]
+    for i, texto in enumerate(beneficios):
+        y = 90 + i * 35
+        draw.text((40, y), texto, font=font_sm, fill=(*C_TEXT,240))
+    
+    # CTA final
+    cta = "tarotgratis.online"
+    bbox = draw.textbbox((0, 0), cta, font=font_big)
+    x = (w-(bbox[2]-bbox[0]))//2
+    draw.text((x+2, 210), cta, font=font_big, fill=(0,0,0,240))
+    draw.text((x, 208), cta, font=font_big, fill=(*C_GOLD,255))
+    
+    return np.array(img)
+
+
+def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type="none"):
     audio          = AudioFileClip(audio_path)
     total_duration = audio.duration + 1.0
 
@@ -442,9 +514,34 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
         .crossfadein(1.0)
     )
 
+    # ===== DECIDIR QUÉ OVERLAYS USAR SEGÚN CTA_TYPE =====
+    final_clips = [bg, dark, purple_tint, title_clip, mid_clip, cta_clip]
+    
+    if cta_type == "paid":
+        # Overlay completo con precio
+        pricing_clip = (
+            ImageClip(_make_pricing_overlay())
+            .set_start(max(1.0, total_duration - 5.0))
+            .set_duration(5.0)
+            .set_position(("center", "center"))
+            .crossfadein(0.8)
+        )
+        final_clips.append(pricing_clip)
+    elif cta_type == "free":
+        # Overlay solo con el link (sin precio)
+        free_clip = (
+            ImageClip(_make_free_overlay())
+            .set_start(max(1.0, total_duration - 4.0))
+            .set_duration(4.0)
+            .set_position(("center", int(VIDEO_H * 0.60)))
+            .crossfadein(0.8)
+        )
+        final_clips.append(free_clip)
+    # Si es "none", no se agrega ningún overlay de CTA extra
+
     TEMP_DIR.mkdir(exist_ok=True)
     final = CompositeVideoClip(
-        [bg, dark, purple_tint, title_clip, mid_clip, cta_clip],
+        final_clips,
         size=(VIDEO_W, VIDEO_H),
     ).set_audio(audio)
 
@@ -468,7 +565,7 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path):
     return output_path
 
 
-def generate(signo_idx: int) -> dict:
+def generate(signo_idx: int, cta_type: str = "none") -> dict:
     OUTPUT_DIR.mkdir(exist_ok=True)
     TEMP_DIR.mkdir(exist_ok=True)
 
@@ -495,8 +592,8 @@ def generate(signo_idx: int) -> dict:
         raise RuntimeError(f"No se pudo descargar fondo para {signo['nombre']}")
 
     output_path = str(OUTPUT_DIR / f"{slug}.mp4")
-    print("🎞️   Componiendo video con URL visible desde el frame 0...")
-    compose_video(bg_path, audio_path, signo, card, output_path)
+    print(f"🎞️   Componiendo video con CTA tipo: {cta_type}")
+    compose_video(bg_path, audio_path, signo, card, output_path, cta_type)
 
     print(f"✅  {signo['nombre']} listo: {output_path}")
 
@@ -508,4 +605,5 @@ def generate(signo_idx: int) -> dict:
         "signo":      signo["nombre"],
         "card":       card,
         "duration_s": duration,
+        "cta_type":   cta_type,
     }
