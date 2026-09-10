@@ -591,4 +591,28 @@ def generate(signo_idx: int, cta_type: str = "none") -> dict:
     print(f"    {reading['title']}")
 
     audio_path = str(TEMP_DIR / f"{slug}.mp3")
-    print("🎙️   Generando voz...
+    print("🎙️   Generando voz...")
+    duration = generate_voice(reading["script"], audio_path)
+    print(f"    {duration:.1f}s")
+
+    bg_path = str(TEMP_DIR / f"{slug}_bg.mp4")
+    print("🎬  Descargando fondo Pexels...")
+    if not download_pexels_video(card, bg_path):
+        raise RuntimeError(f"No se pudo descargar fondo para {signo['nombre']}")
+
+    output_path = str(OUTPUT_DIR / f"{slug}.mp4")
+    print(f"🎞️   Componiendo video con CTA tipo: {cta_type}")
+    compose_video(bg_path, audio_path, signo, card, output_path, cta_type)
+
+    print(f"✅  {signo['nombre']} listo: {output_path}")
+
+    return {
+        "video_path": output_path,
+        "title":      reading["title"],
+        "description":reading["description"],
+        "tags":       reading["tags"],
+        "signo":      signo["nombre"],
+        "card":       card,
+        "duration_s": duration,
+        "cta_type":   cta_type,
+    }
