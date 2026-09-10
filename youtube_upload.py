@@ -52,17 +52,6 @@ def get_credentials():
 def upload_video(video_path, title, description, tags, category_id="22", privacy="public"):
     """
     Sube un video a YouTube con CTA optimizado para suscripción.
-    
-    Args:
-        video_path: ruta al archivo MP4
-        title: título del video (max 100 chars)
-        description: descripción base (se le añade el CTA automáticamente)
-        tags: lista de tags
-        category_id: 22 = People & Blogs (default para tarot)
-        privacy: public / unlisted / private
-    
-    Returns:
-        video_id: ID del video en YouTube
     """
     creds = get_credentials()
     youtube = build("youtube", "v3", credentials=creds)
@@ -73,7 +62,7 @@ def upload_video(video_path, title, description, tags, category_id="22", privacy
     body = {
         "snippet": {
             "title": title[:100],
-            "description": full_description[:5000],  # Límite de YouTube
+            "description": full_description[:5000],
             "tags": tags[:500],
             "categoryId": category_id,
             "defaultLanguage": "es",

@@ -2,7 +2,6 @@ name: 🔮 Publicar videos de Tarot en YouTube
 
 on:
   schedule:
-    # Lunes a domingo a las 14:00 UTC (11:00 AM Uruguay)
     - cron: "14 11 * * *"
 
   workflow_dispatch:
@@ -68,18 +67,18 @@ jobs:
       - name: Generar y publicar
         if: steps.check.outputs.run == 'true'
         run: |
-          DAY=$(date +%u)  # 1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado, 7=Domingo
+          DAY=$(date +%u)
           CTA="${{ github.event.inputs.force_cta }}"
           if [ "$CTA" = "" ]; then
             CTA="none"
             if [ "$DAY" -eq 2 ]; then
-              CTA="free"      # Martes → oferta gratuita (lead magnet)
+              CTA="free"
             elif [ "$DAY" -eq 4 ]; then
-              CTA="paid"      # Jueves → oferta de pago ($4.99/mes)
+              CTA="paid"
             elif [ "$DAY" -eq 6 ]; then
-              CTA="paid"      # Sábado → oferta de pago ($4.99/mes)
+              CTA="paid"
             elif [ "$DAY" -eq 7 ]; then
-              CTA="paid"      # Domingo → oferta de pago ($4.99/mes)
+              CTA="paid"
             fi
           fi
           
