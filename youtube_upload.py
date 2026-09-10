@@ -1,5 +1,6 @@
 """
 youtube_upload.py — sube videos a YouTube Data API v3
+Optimizado para conversión a suscripción de $4.99/mes
 """
 import os, sys, argparse
 from pathlib import Path
@@ -12,6 +13,27 @@ from googleapiclient.http import MediaFileUpload
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 CLIENT_SECRETS = "client_secrets.json"
 TOKEN_FILE = "token.json"
+
+# ── CTA optimizado para conversión a suscripción ──────────────────────
+CTA_BLOCK = """
+
+🌙 ¿Quieres recibir tu carta del tarot CADA MAÑANA en tu WhatsApp?
+
+✅ Una carta del tarot cada mañana
+✅ Interpretación personalizada por IA
+✅ Directo a tu WhatsApp, sin apps extra
+✅ Solo $4.99/mes · Cancelás cuando quieras
+
+👉 Suscribite aquí: https://tarotgratis.online/#suscribirme
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔮 Tarot gratis online con IA — lectura inmediata sin registro:
+https://tarotgratis.online
+
+#tarot #tarotdiario #cartadeldia #tarotgratis #tarotonline #tarotporsigno
+"""
+
 
 def get_credentials():
     creds = None
@@ -26,34 +48,72 @@ def get_credentials():
         Path(TOKEN_FILE).write_text(creds.to_json(), encoding="utf-8")
     return creds
 
+
 def upload_video(video_path, title, description, tags, category_id="22", privacy="public"):
+    """
+    Sube un video a YouTube con CTA optimizado para suscripción.
+    
+    Args:
+        video_path: ruta al archivo MP4
+        title: título del video (max 100 chars)
+        description: descripción base (se le añade el CTA automáticamente)
+        tags: lista de tags
+        category_id: 22 = People & Blogs (default para tarot)
+        privacy: public / unlisted / private
+    
+    Returns:
+        video_id: ID del video en YouTube
+    """
     creds = get_credentials()
     youtube = build("youtube", "v3", credentials=creds)
+
+    # Añadir CTA optimizado al final de la descripción
+    full_description = description + CTA_BLOCK
+
     body = {
         "snippet": {
             "title": title[:100],
-            "description": description + "\n\n🔮 https://tarotgratis.online\n#tarot #lecturadetarot #tarotdiario",
+            "description": full_description[:5000],  # Límite de YouTube
             "tags": tags[:500],
             "categoryId": category_id,
             "defaultLanguage": "es",
+            "defaultAudioLanguage": "es",
         },
-        "status": {"privacyStatus": privacy, "selfDeclaredMadeForKids": False},
+        "status": {
+            "privacyStatus": privacy,
+            "selfDeclaredMadeForKids": False,
+            "madeForKids": False,
+        },
     }
-    media = MediaFileUpload(video_path, mimetype="video/mp4", resumable=True, chunksize=4*1024*1024)
-    print(f"📤 Subiendo: {title}")
-    request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+
+    media = MediaFileUpload(
+        video_path,
+        mimetype="video/mp4",
+        resumable=True,
+        chunksize=4 * 1024 * 1024,
+    )
+
+    print(f"📤 Subiendo a YouTube: {title}")
+    request = youtube.videos().insert(
+        part="snippet,status",
+        body=body,
+        media_body=media,
+    )
+
     response = None
     while response is None:
         status, response = request.next_chunk()
         if status:
-            print(f"   {int(status.progress()*100)}%", end="\r")
+            print(f"   {int(status.progress() * 100)}%", end="\r")
+
     video_id = response["id"]
-    print(f"\n✅ https://www.youtube.com/shorts/{video_id}")
+    print(f"\n✅ YouTube: https://www.youtube.com/shorts/{video_id}")
     return video_id
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--auth", action="store_true")
+    parser.add_argument("--auth", action="store_true", help="Autorizar y guardar token")
     args = parser.parse_args()
     if args.auth:
         get_credentials()
