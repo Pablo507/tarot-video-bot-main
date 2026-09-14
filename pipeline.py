@@ -70,11 +70,17 @@ def main():
 
     results = []
     errors = []
+    guiones_previos = []   # NUEVO: acumula guiones del grupo para evitar repeticiones
 
     for idx in indices:
         nombre = SIGNOS_NOMBRES[idx]
         try:
-            result = generate(signo_idx=idx, cta_type=args.cta)
+            result = generate(
+                signo_idx=idx,
+                cta_type=args.cta,
+                prev_scripts=guiones_previos,   # NUEVO
+            )
+            guiones_previos.append(result.get("script", ""))   # NUEVO
             results.append(result)
 
             if not args.dry_run:
