@@ -20,6 +20,7 @@ import os
 import json
 import random
 import hashlib
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -164,12 +165,16 @@ CARD_PEXELS = {
 
 DEFAULT_QUERIES = ["mystical dark purple", "night sky stars", "smoke dark background"]
 
+# Voces TTS por elemento — TODAS FEMENINAS (Neural2-B es masculina, no se usa)
 VOCES_POR_ELEMENTO = {
     "Fuego":  "es-US-Neural2-A",
-    "Tierra": "es-US-Neural2-B",
+    "Tierra": "es-US-Neural2-A",
     "Aire":   "es-US-Journey-F",
     "Agua":   "es-US-Neural2-A",
 }
+
+# Voces que NO aceptan el parámetro `pitch`
+VOCES_SIN_PITCH = {"es-US-Journey-F", "es-US-Journey-D", "es-US-Journey-O"}
 
 
 def get_card_for_sign(signo_idx: int) -> str:
@@ -255,7 +260,7 @@ Devolvé UNICAMENTE un objeto JSON válido, sin markdown, con estas claves:
         messages=[{"role": "user", "content": prompt}],
         temperature=1.05,
         top_p=0.95,
-        max_tokens=900,
+        max_tokens=600,
     )
     raw = resp.choices[0].message.content.strip()
     print("Respuesta cruda de Groq:", raw[:200])
@@ -293,17 +298,33 @@ Devolvé UNICAMENTE un objeto JSON válido, sin markdown, con estas claves:
 def generate_voice(script: str, output_path: str, elemento: str = "Fuego") -> float:
     client = texttospeech.TextToSpeechClient()
     synthesis_input = texttospeech.SynthesisInput(text=script)
+
+    voice_name = os.getenv(
+        "GOOGLE_TTS_VOICE",
+        VOCES_POR_ELEMENTO.get(elemento, "es-US-Neural2-A"),
+    )
+
     voice = texttospeech.VoiceSelectionParams(
         language_code="es-US",
-        name=os.getenv("GOOGLE_TTS_VOICE", VOCES_POR_ELEMENTO.get(elemento, "es-US-Neural2-A")),
+        name=voice_name,
         ssml_gender=texttospeech.SsmlVoiceGender.FEMALE,
     )
-    audio_config = texttospeech.AudioConfig(
-        audio_encoding=texttospeech.AudioEncoding.MP3,
-        speaking_rate=0.90,
-        pitch=-1.0,
-        volume_gain_db=1.0,
-    )
+
+    # Journey no soporta pitch → lo omitimos para esa familia
+    if voice_name in VOCES_SIN_PITCH:
+        audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.MP3,
+            speaking_rate=0.90,
+            volume_gain_db=1.0,
+        )
+    else:
+        audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.MP3,
+            speaking_rate=0.90,
+            pitch=-1.0,
+            volume_gain_db=1.0,
+        )
+
     response = client.synthesize_speech(
         input=synthesis_input, voice=voice, audio_config=audio_config,
     )
@@ -676,10 +697,12 @@ def generate(signo_idx: int, cta_type: str = "none", prev_scripts: list = None) 
     print("📝  Generando guión...")
     reading = generate_reading(signo, card)
 
+    # Solo 1 reintento + pausa de 6s → evita 429 de Groq
     if prev_scripts:
         intentos = 0
-        while _is_too_similar(reading["script"], prev_scripts) and intentos < 3:
-            print(f"   ⚠️  Guión similar a otros del grupo, reintentando ({intentos+1}/3)...")
+        while _is_too_similar(reading["script"], prev_scripts) and intentos < 1:
+            print(f"   ⚠️  Guión similar a otros del grupo, reintentando ({intentos+1}/1)...")
+            time.sleep(6)
             reading = generate_reading(signo, card)
             intentos += 1
 
