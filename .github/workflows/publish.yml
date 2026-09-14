@@ -1,10 +1,11 @@
 name: 🔮 Publicar videos de Tarot en YouTube
 
 on:
-  schedule:
-    # Corre todos los días a las 11:14 UTC.
-    # El filtro par/impar dentro de cada job decide qué mitades se publican.
-    - cron: "14 11 * * *"
+  # ⛔ Cron de GitHub DESACTIVADO — usamos cron-job.org a las 3 AM Montevideo
+  # Motivo: el cron de GitHub se retrasa hasta 3 horas y a veces se saltea runs.
+  # Disparo externo confiable: cron-job.org → API de GitHub (workflow_dispatch)
+  # schedule:
+  #   - cron: "0 6 * * *"
 
   workflow_dispatch:
     inputs:
@@ -35,7 +36,6 @@ on:
           - "paid"
         default: ""
 
-# Evita que dos runs (cron + manual) se pisen subiendo los mismos videos
 concurrency:
   group: tarot-publish
   cancel-in-progress: false
@@ -76,7 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           DAY=$(date -u +%-d)
-          MOD=$((DAY % 2))                       # 0 = par, 1 = impar
+          MOD=$((DAY % 2))
           FORCE="${{ github.event.inputs.force_parity }}"
           PARIDAD="${{ matrix.paridad }}"
 
@@ -121,8 +121,6 @@ jobs:
           printf '%s' "$YOUTUBE_TOKEN_JSON"     > token.json
           printf '%s' "$GOOGLE_TTS_CREDENTIALS" > tts_credentials.json
 
-          # .env sin GOOGLE_TTS_VOICE para que generate_video.py
-          # rote la voz según el elemento del signo (Fuego/Tierra/Aire/Agua).
           {
             echo "GROQ_API_KEY=$GROQ_API_KEY"
             echo "PEXELS_API_KEY=$PEXELS_API_KEY"
@@ -137,15 +135,15 @@ jobs:
         if: steps.check.outputs.run == 'true'
         run: |
           set -euo pipefail
-          DAY_U=$(date -u +%u)     # 1=lunes … 7=domingo (UTC)
+          DAY_U=$(date -u +%u)
           CTA="${{ github.event.inputs.force_cta }}"
           if [ -z "$CTA" ]; then
             case "$DAY_U" in
-              2) CTA="free" ;;     # martes
-              4) CTA="paid" ;;     # jueves
-              6) CTA="paid" ;;     # sábado
-              7) CTA="paid" ;;     # domingo
-              *) CTA="none" ;;     # lunes, miércoles, viernes
+              2) CTA="free" ;;
+              4) CTA="paid" ;;
+              6) CTA="paid" ;;
+              7) CTA="paid" ;;
+              *) CTA="none" ;;
             esac
           fi
           echo "cta=$CTA" >> "$GITHUB_OUTPUT"

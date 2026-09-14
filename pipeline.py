@@ -8,10 +8,8 @@ Uso:
   python pipeline.py --group 1   # Cáncer, Leo, Virgo
   python pipeline.py --group 2   # Libra, Escorpio, Sagitario
   python pipeline.py --group 3   # Capricornio, Acuario, Piscis
-  python pipeline.py --group 0 --dry-run   # solo genera, no sube
-  python pipeline.py --group 0 --cta paid  # con CTA de pago
-  python pipeline.py --group 0 --cta free  # con CTA gratuita
-  python pipeline.py --group 0 --cta none  # sin CTA extra
+  python pipeline.py --group 0 --dry-run
+  python pipeline.py --group 0 --cta paid
 """
 
 import argparse
@@ -24,10 +22,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GROUPS = [
-    [0, 1, 2],   # Aries, Tauro, Géminis
-    [3, 4, 5],   # Cáncer, Leo, Virgo
-    [6, 7, 8],   # Libra, Escorpio, Sagitario
-    [9, 10, 11], # Capricornio, Acuario, Piscis
+    [0, 1, 2],
+    [3, 4, 5],
+    [6, 7, 8],
+    [9, 10, 11],
 ]
 
 SIGNOS_NOMBRES = [
@@ -46,7 +44,7 @@ def main():
         type=str,
         choices=["none", "free", "paid"],
         default="paid",
-        help="Tipo de CTA: none (solo lectura), free (link gratis), paid ($4.99/mes)",
+        help="Tipo de CTA: none, free, paid",
     )
     args = parser.parse_args()
 
@@ -70,7 +68,7 @@ def main():
 
     results = []
     errors = []
-    guiones_previos = []   # NUEVO: acumula guiones del grupo para evitar repeticiones
+    guiones_previos = []
 
     for idx in indices:
         nombre = SIGNOS_NOMBRES[idx]
@@ -78,13 +76,12 @@ def main():
             result = generate(
                 signo_idx=idx,
                 cta_type=args.cta,
-                prev_scripts=guiones_previos,   # NUEVO
+                prev_scripts=guiones_previos,
             )
-            guiones_previos.append(result.get("script", ""))   # NUEVO
+            guiones_previos.append(result.get("script", ""))
             results.append(result)
 
             if not args.dry_run:
-                # ── Subir a YouTube ───────────────────────────────────────────
                 video_id = yt_upload(
                     video_path=result["video_path"],
                     title=result["title"],
@@ -96,7 +93,6 @@ def main():
                 result["youtube_url"] = f"https://www.youtube.com/shorts/{video_id}"
                 print(f"  📺 YouTube: https://www.youtube.com/shorts/{video_id}")
 
-                # ── Subir a Google Drive (para TikTok via Make.com) ───────────
                 if use_drive:
                     drive_id = drive_upload(
                         video_path=result["video_path"],
@@ -117,7 +113,6 @@ def main():
             print(f"  ❌ Error en {nombre}: {e}")
             errors.append({"signo": nombre, "error": str(e)})
 
-    # Guardar resumen
     summary = {
         "timestamp": datetime.now().isoformat(),
         "group":     args.group,
