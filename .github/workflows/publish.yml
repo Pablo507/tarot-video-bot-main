@@ -2,6 +2,8 @@ name: 🔮 Publicar videos de Tarot en YouTube
 
 on:
   schedule:
+    # Corre todos los días a las 11:14 UTC.
+    # El filtro par/impar dentro de cada job decide qué mitades se publican.
     - cron: "14 11 * * *"
 
   workflow_dispatch:
@@ -14,261 +16,155 @@ on:
         description: "Subir como privado"
         type: boolean
         default: false
-      force_group:
-        description: "Forzar grupo: 0 (Aries-Virgo) o 1 (Libra-Piscis) — vacío = automático"
-        type: string
+      force_parity:
+        description: "Forzar paridad: even (días pares) / odd (días impares) / both — vacío = automático"
+        type: choice
+        options:
+          - ""
+          - "even"
+          - "odd"
+          - "both"
         default: ""
       force_cta:
         description: "Forzar CTA: none, free, paid — vacío = automático según día"
-        type: string
+        type: choice
+        options:
+          - ""
+          - "none"
+          - "free"
+          - "paid"
         default: ""
 
+# Evita que dos runs (cron + manual) se pisen subiendo los mismos videos
+concurrency:
+  group: tarot-publish
+  cancel-in-progress: false
+
 jobs:
-
-  grupo-A-0:
-    name: "Aries - Tauro - Geminis"
+  publicar:
+    name: "Grupo ${{ matrix.group }}: ${{ matrix.nombres }}"
     runs-on: ubuntu-latest
     timeout-minutes: 28
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: 0
+            nombres: "Aries - Tauro - Géminis"
+            paridad: even
+          - group: 1
+            nombres: "Cáncer - Leo - Virgo"
+            paridad: even
+          - group: 2
+            nombres: "Libra - Escorpio - Sagitario"
+            paridad: odd
+          - group: 3
+            nombres: "Capricornio - Acuario - Piscis"
+            paridad: odd
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
-      - name: Verificar grupo A (días pares)
-        id: check
-        run: |
-          DAY=$(date -u +%-d)
-          MOD=$((DAY % 2))
-          FORCE="${{ github.event.inputs.force_group }}"
-          if [ "$FORCE" = "0" ] || ([ "$FORCE" = "" ] && [ "$MOD" = "0" ]); then
-            echo "run=true" >> $GITHUB_OUTPUT
-          else
-            echo "run=false" >> $GITHUB_OUTPUT
-          fi
-      - name: Sistema
-        if: steps.check.outputs.run == 'true'
-        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
-      - name: Dependencias
-        if: steps.check.outputs.run == 'true'
-        run: |
-          pip install -r requirements.txt
-          python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt)"
-      - name: Credenciales
-        if: steps.check.outputs.run == 'true'
-        run: |
-          echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
-          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
-          echo '${{ secrets.GOOGLE_TTS_CREDENTIALS }}' > tts_credentials.json
-          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"                  > .env
-          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"             >> .env
-          echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
-          echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
-      - name: Generar y publicar
-        if: steps.check.outputs.run == 'true'
-        run: |
-          DAY=$(date +%u)
-          CTA="${{ github.event.inputs.force_cta }}"
-          if [ "$CTA" = "" ]; then
-            CTA="none"
-            if [ "$DAY" -eq 2 ]; then
-              CTA="free"
-            elif [ "$DAY" -eq 4 ]; then
-              CTA="paid"
-            elif [ "$DAY" -eq 6 ]; then
-              CTA="paid"
-            elif [ "$DAY" -eq 7 ]; then
-              CTA="paid"
-            fi
-          fi
-          
-          CMD="python pipeline.py --group 0 --cta $CTA"
-          [ "${{ github.event.inputs.dry_run }}" = "true" ] && CMD="$CMD --dry-run"
-          [ "${{ github.event.inputs.private }}" = "true" ] && CMD="$CMD --private"
-          eval $CMD
 
-  grupo-A-1:
-    name: "Cancer - Leo - Virgo"
-    runs-on: ubuntu-latest
-    timeout-minutes: 28
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-      - name: Verificar grupo A (días pares)
+      - name: Decidir si este grupo corre hoy
         id: check
         run: |
+          set -euo pipefail
           DAY=$(date -u +%-d)
-          MOD=$((DAY % 2))
-          FORCE="${{ github.event.inputs.force_group }}"
-          if [ "$FORCE" = "0" ] || ([ "$FORCE" = "" ] && [ "$MOD" = "0" ]); then
-            echo "run=true" >> $GITHUB_OUTPUT
-          else
-            echo "run=false" >> $GITHUB_OUTPUT
-          fi
-      - name: Sistema
-        if: steps.check.outputs.run == 'true'
-        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
-      - name: Dependencias
-        if: steps.check.outputs.run == 'true'
-        run: |
-          pip install -r requirements.txt
-          python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt)"
-      - name: Credenciales
-        if: steps.check.outputs.run == 'true'
-        run: |
-          echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
-          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
-          echo '${{ secrets.GOOGLE_TTS_CREDENTIALS }}' > tts_credentials.json
-          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"                  > .env
-          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"             >> .env
-          echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
-          echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
-      - name: Generar y publicar
-        if: steps.check.outputs.run == 'true'
-        run: |
-          DAY=$(date +%u)
-          CTA="${{ github.event.inputs.force_cta }}"
-          if [ "$CTA" = "" ]; then
-            CTA="none"
-            if [ "$DAY" -eq 2 ]; then
-              CTA="free"
-            elif [ "$DAY" -eq 4 ]; then
-              CTA="paid"
-            elif [ "$DAY" -eq 6 ]; then
-              CTA="paid"
-            elif [ "$DAY" -eq 7 ]; then
-              CTA="paid"
-            fi
-          fi
-          
-          CMD="python pipeline.py --group 1 --cta $CTA"
-          [ "${{ github.event.inputs.dry_run }}" = "true" ] && CMD="$CMD --dry-run"
-          [ "${{ github.event.inputs.private }}" = "true" ] && CMD="$CMD --private"
-          eval $CMD
+          MOD=$((DAY % 2))                       # 0 = par, 1 = impar
+          FORCE="${{ github.event.inputs.force_parity }}"
+          PARIDAD="${{ matrix.paridad }}"
 
-  grupo-B-2:
-    name: "Libra - Escorpio - Sagitario"
-    runs-on: ubuntu-latest
-    timeout-minutes: 28
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-      - name: Verificar grupo B (días impares)
-        id: check
-        run: |
-          DAY=$(date -u +%-d)
-          MOD=$((DAY % 2))
-          FORCE="${{ github.event.inputs.force_group }}"
-          if [ "$FORCE" = "1" ] || ([ "$FORCE" = "" ] && [ "$MOD" = "1" ]); then
-            echo "run=true" >> $GITHUB_OUTPUT
-          else
-            echo "run=false" >> $GITHUB_OUTPUT
-          fi
-      - name: Sistema
-        if: steps.check.outputs.run == 'true'
-        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
-      - name: Dependencias
-        if: steps.check.outputs.run == 'true'
-        run: |
-          pip install -r requirements.txt
-          python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt)"
-      - name: Credenciales
-        if: steps.check.outputs.run == 'true'
-        run: |
-          echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
-          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
-          echo '${{ secrets.GOOGLE_TTS_CREDENTIALS }}' > tts_credentials.json
-          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"                  > .env
-          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"             >> .env
-          echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
-          echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
-      - name: Generar y publicar
-        if: steps.check.outputs.run == 'true'
-        run: |
-          DAY=$(date +%u)
-          CTA="${{ github.event.inputs.force_cta }}"
-          if [ "$CTA" = "" ]; then
-            CTA="none"
-            if [ "$DAY" -eq 2 ]; then
-              CTA="free"
-            elif [ "$DAY" -eq 4 ]; then
-              CTA="paid"
-            elif [ "$DAY" -eq 6 ]; then
-              CTA="paid"
-            elif [ "$DAY" -eq 7 ]; then
-              CTA="paid"
+          RUN="false"
+          if [ "$FORCE" = "both" ]; then
+            RUN="true"
+          elif [ "$FORCE" = "even" ] && [ "$PARIDAD" = "even" ]; then
+            RUN="true"
+          elif [ "$FORCE" = "odd" ] && [ "$PARIDAD" = "odd" ]; then
+            RUN="true"
+          elif [ -z "$FORCE" ]; then
+            if { [ "$PARIDAD" = "even" ] && [ "$MOD" -eq 0 ]; } || \
+               { [ "$PARIDAD" = "odd" ]  && [ "$MOD" -eq 1 ]; }; then
+              RUN="true"
             fi
           fi
-          
-          CMD="python pipeline.py --group 2 --cta $CTA"
-          [ "${{ github.event.inputs.dry_run }}" = "true" ] && CMD="$CMD --dry-run"
-          [ "${{ github.event.inputs.private }}" = "true" ] && CMD="$CMD --private"
-          eval $CMD
 
-  grupo-B-3:
-    name: "Capricornio - Acuario - Piscis"
-    runs-on: ubuntu-latest
-    timeout-minutes: 28
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-      - name: Verificar grupo B (días impares)
-        id: check
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          echo "Día=$DAY MOD=$MOD paridad=$PARIDAD force='$FORCE' → run=$RUN"
+
+      - name: Sistema (ffmpeg + fuentes)
+        if: steps.check.outputs.run == 'true'
         run: |
-          DAY=$(date -u +%-d)
-          MOD=$((DAY % 2))
-          FORCE="${{ github.event.inputs.force_group }}"
-          if [ "$FORCE" = "1" ] || ([ "$FORCE" = "" ] && [ "$MOD" = "1" ]); then
-            echo "run=true" >> $GITHUB_OUTPUT
-          else
-            echo "run=false" >> $GITHUB_OUTPUT
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
+
+      - name: Dependencias Python
+        if: steps.check.outputs.run == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Escribir credenciales y .env
+        if: steps.check.outputs.run == 'true'
+        env:
+          YOUTUBE_CLIENT_SECRETS: ${{ secrets.YOUTUBE_CLIENT_SECRETS }}
+          YOUTUBE_TOKEN_JSON:     ${{ secrets.YOUTUBE_TOKEN_JSON }}
+          GOOGLE_TTS_CREDENTIALS: ${{ secrets.GOOGLE_TTS_CREDENTIALS }}
+          GROQ_API_KEY:           ${{ secrets.GROQ_API_KEY }}
+          PEXELS_API_KEY:         ${{ secrets.PEXELS_API_KEY }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$YOUTUBE_CLIENT_SECRETS" > client_secrets.json
+          printf '%s' "$YOUTUBE_TOKEN_JSON"     > token.json
+          printf '%s' "$GOOGLE_TTS_CREDENTIALS" > tts_credentials.json
+
+          # .env sin GOOGLE_TTS_VOICE para que generate_video.py
+          # rote la voz según el elemento del signo (Fuego/Tierra/Aire/Agua).
+          {
+            echo "GROQ_API_KEY=$GROQ_API_KEY"
+            echo "PEXELS_API_KEY=$PEXELS_API_KEY"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"
+          } > .env
+
+          echo "── .env generado ──"
+          sed 's/=.*/=<oculto>/' .env
+
+      - name: Elegir CTA según día
+        id: cta
+        if: steps.check.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          DAY_U=$(date -u +%u)     # 1=lunes … 7=domingo (UTC)
+          CTA="${{ github.event.inputs.force_cta }}"
+          if [ -z "$CTA" ]; then
+            case "$DAY_U" in
+              2) CTA="free" ;;     # martes
+              4) CTA="paid" ;;     # jueves
+              6) CTA="paid" ;;     # sábado
+              7) CTA="paid" ;;     # domingo
+              *) CTA="none" ;;     # lunes, miércoles, viernes
+            esac
           fi
-      - name: Sistema
-        if: steps.check.outputs.run == 'true'
-        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
-      - name: Dependencias
-        if: steps.check.outputs.run == 'true'
-        run: |
-          pip install -r requirements.txt
-          python -c "import moviepy.video.fx.resize as r, inspect; src=inspect.getfile(r); txt=open(src).read().replace('Image.ANTIALIAS','Image.LANCZOS'); open(src,'w').write(txt)"
-      - name: Credenciales
-        if: steps.check.outputs.run == 'true'
-        run: |
-          echo '${{ secrets.YOUTUBE_CLIENT_SECRETS }}' > client_secrets.json
-          echo '${{ secrets.YOUTUBE_TOKEN_JSON }}'     > token.json
-          echo '${{ secrets.GOOGLE_TTS_CREDENTIALS }}' > tts_credentials.json
-          echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}"                  > .env
-          echo "PEXELS_API_KEY=${{ secrets.PEXELS_API_KEY }}"             >> .env
-          echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"      >> .env
-          echo "GOOGLE_TTS_VOICE=es-US-Neural2-A"                         >> .env
+          echo "cta=$CTA" >> "$GITHUB_OUTPUT"
+          echo "Día (UTC) = $DAY_U → CTA = $CTA"
+
       - name: Generar y publicar
         if: steps.check.outputs.run == 'true'
         run: |
-          DAY=$(date +%u)
-          CTA="${{ github.event.inputs.force_cta }}"
-          if [ "$CTA" = "" ]; then
-            CTA="none"
-            if [ "$DAY" -eq 2 ]; then
-              CTA="free"
-            elif [ "$DAY" -eq 4 ]; then
-              CTA="paid"
-            elif [ "$DAY" -eq 6 ]; then
-              CTA="paid"
-            elif [ "$DAY" -eq 7 ]; then
-              CTA="paid"
-            fi
-          fi
-          
-          CMD="python pipeline.py --group 3 --cta $CTA"
+          set -euo pipefail
+          CMD="python pipeline.py --group ${{ matrix.group }} --cta ${{ steps.cta.outputs.cta }}"
           [ "${{ github.event.inputs.dry_run }}" = "true" ] && CMD="$CMD --dry-run"
           [ "${{ github.event.inputs.private }}" = "true" ] && CMD="$CMD --private"
-          eval $CMD
+          echo "▶️  $CMD"
+          eval "$CMD"
+
+      - name: Subir MP4s como artifact (solo en dry-run)
+        if: steps.check.outputs.run == 'true' && github.event.inputs.dry_run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: videos-group-${{ matrix.group }}
+          path: output_videos/*.mp4
+          retention-days: 7
