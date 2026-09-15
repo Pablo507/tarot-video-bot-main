@@ -1,7 +1,7 @@
 """
 pipeline.py
-Procesa un grupo de 3 signos zodiacales, los sube a YouTube y a Google Drive.
-Make.com detecta los archivos en Drive y los publica en TikTok automáticamente.
+Procesa un grupo de 3 signos zodiacales y los sube a YouTube.
+Los videos se suben manualmente a TikTok después.
 
 Uso:
   python pipeline.py --group 0   # Aries, Tauro, Géminis
@@ -61,10 +61,6 @@ def main():
 
     from generate_video import generate
     from youtube_upload import upload_video as yt_upload
-    from drive_upload import upload_video as drive_upload
-    import os
-
-    use_drive = bool(os.getenv("DRIVE_FOLDER_ID", ""))
 
     results = []
     errors = []
@@ -92,20 +88,6 @@ def main():
                 result["video_id"] = video_id
                 result["youtube_url"] = f"https://www.youtube.com/shorts/{video_id}"
                 print(f"  📺 YouTube: https://www.youtube.com/shorts/{video_id}")
-
-                if use_drive:
-                    drive_id = drive_upload(
-                        video_path=result["video_path"],
-                        title=result["title"],
-                        description=result["description"],
-                        metadata=result,
-                    )
-                    result["drive_id"] = drive_id
-                    if drive_id:
-                        print(f"  ☁️  Drive: {drive_id}")
-                else:
-                    print(f"  ⏭️  Drive: DRIVE_FOLDER_ID no configurado, saltando")
-
             else:
                 print(f"  ✅ {nombre}: {result['video_path']} (dry-run)")
 
