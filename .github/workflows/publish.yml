@@ -1,9 +1,7 @@
 name: 🔮 Publicar videos de Tarot en YouTube
 
 on:
-  # ⛔ Cron de GitHub DESACTIVADO — usamos cron-job.org a las 3 AM Montevideo
-  # Motivo: el cron de GitHub se retrasa hasta 3 horas y a veces se saltea runs.
-  # Disparo externo confiable: cron-job.org → API de GitHub (workflow_dispatch)
+  # ⛔ Cron de GitHub DESACTIVADO — usamos cron-job.org
   # schedule:
   #   - cron: "0 6 * * *"
 
@@ -17,17 +15,17 @@ on:
         description: "Subir como privado"
         type: boolean
         default: false
-      force_parity:
-        description: "Forzar paridad: even (días pares) / odd (días impares) / both — vacío = automático"
+      force_day:
+        description: "Forzar día: wed (grupos 0+1) / sun (grupos 2+3) / both — vacío = automático"
         type: choice
         options:
           - ""
-          - "even"
-          - "odd"
+          - "wed"
+          - "sun"
           - "both"
         default: ""
       force_cta:
-        description: "Forzar CTA: none, free, paid — vacío = automático según día"
+        description: "Forzar CTA: none, free, paid — vacío = automático"
         type: choice
         options:
           - ""
@@ -52,16 +50,16 @@ jobs:
         include:
           - group: 0
             nombres: "Aries - Tauro - Géminis"
-            paridad: even
+            dia: wed
           - group: 1
             nombres: "Cáncer - Leo - Virgo"
-            paridad: even
+            dia: wed
           - group: 2
             nombres: "Libra - Escorpio - Sagitario"
-            paridad: odd
+            dia: sun
           - group: 3
             nombres: "Capricornio - Acuario - Piscis"
-            paridad: odd
+            dia: sun
 
     steps:
       - uses: actions/checkout@v4
@@ -75,27 +73,49 @@ jobs:
         id: check
         run: |
           set -euo pipefail
-          DAY=$(date -u +%-d)
-          MOD=$((DAY % 2))
-          FORCE="${{ github.event.inputs.force_parity }}"
-          PARIDAD="${{ matrix.paridad }}"
+          # Día de la semana en UTC: 1=lunes, 2=martes, 3=miércoles,
+          # 4=jueves, 5=viernes, 6=sábado, 7=domingo
+          DOW=$(date -u +%u)
+          FORCE="${{ github.event.inputs.force_day }}"
+          DIA_GRUPO="${{ matrix.dia }}"
+
+          # Mapear DOW a "wed" (miércoles=3) o "sun" (domingo=7)
+          HOY=""
+          if [ "$DOW" -eq 3 ]; then HOY="wed"; fi
+          if [ "$DOW" -eq 7 ]; then HOY="sun"; fi
 
           RUN="false"
+
+          # 1) Forzado manual desde workflow_dispatch
           if [ "$FORCE" = "both" ]; then
             RUN="true"
-          elif [ "$FORCE" = "even" ] && [ "$PARIDAD" = "even" ]; then
+            echo "→ Forzado: both (correr todo)"
+          elif [ -n "$FORCE" ] && [ "$FORCE" = "$DIA_GRUPO" ]; then
             RUN="true"
-          elif [ "$FORCE" = "odd" ] && [ "$PARIDAD" = "odd" ]; then
-            RUN="true"
+            echo "→ Forzado: $FORCE = $DIA_GRUPO"
+          # 2) Modo automático: solo miércoles o domingo
           elif [ -z "$FORCE" ]; then
-            if { [ "$PARIDAD" = "even" ] && [ "$MOD" -eq 0 ]; } || \
-               { [ "$PARIDAD" = "odd" ]  && [ "$MOD" -eq 1 ]; }; then
+            if [ -z "$HOY" ]; then
+              RUN="false"
+              echo "→ Hoy DOW=$DOW no es miércoles ni domingo → SALTAR"
+            elif [ "$HOY" = "$DIA_GRUPO" ]; then
               RUN="true"
+              echo "→ Hoy es $HOY y el grupo es $DIA_GRUPO → CORRER"
+            else
+              RUN="false"
+              echo "→ Hoy es $HOY pero el grupo es $DIA_GRUPO → SALTAR"
             fi
           fi
 
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
-          echo "Día=$DAY MOD=$MOD paridad=$PARIDAD force='$FORCE' → run=$RUN"
+          echo ""
+          echo "═══ Resumen decisión ═══"
+          echo "DOW (UTC):  $DOW"
+          echo "HOY:        ${HOY:-<ninguno>}"
+          echo "Grupo día:  $DIA_GRUPO"
+          echo "Forzado:    ${FORCE:-<no>}"
+          echo "DECISIÓN:   run=$RUN"
+          echo "════════════════════════"
 
       - name: Sistema (ffmpeg + fuentes)
         if: steps.check.outputs.run == 'true'
@@ -130,24 +150,23 @@ jobs:
           echo "── .env generado ──"
           sed 's/=.*/=<oculto>/' .env
 
-      - name: Elegir CTA según día
+      - name: Elegir CTA
         id: cta
         if: steps.check.outputs.run == 'true'
         run: |
           set -euo pipefail
-          DAY_U=$(date -u +%u)
           CTA="${{ github.event.inputs.force_cta }}"
           if [ -z "$CTA" ]; then
-            case "$DAY_U" in
-              2) CTA="free" ;;
-              4) CTA="paid" ;;
-              6) CTA="paid" ;;
+            # Miércoles = free, Domingo = paid
+            DOW=$(date -u +%u)
+            case "$DOW" in
+              3) CTA="free" ;;
               7) CTA="paid" ;;
               *) CTA="none" ;;
             esac
           fi
           echo "cta=$CTA" >> "$GITHUB_OUTPUT"
-          echo "Día (UTC) = $DAY_U → CTA = $CTA"
+          echo "CTA elegido: $CTA"
 
       - name: Generar y publicar
         if: steps.check.outputs.run == 'true'
@@ -166,3 +185,11 @@ jobs:
           name: videos-group-${{ matrix.group }}
           path: output_videos/*.mp4
           retention-days: 7
+
+      - name: Aviso si se salteó por día
+        if: steps.check.outputs.run != 'true'
+        run: |
+          echo "⏭️  Este grupo NO se ejecuta hoy."
+          echo "   El grupo '${{ matrix.nombres }}' solo corre los días: ${{ matrix.dia }}"
+          echo "   Hoy es DOW=$(date -u +%u) (UTC)"
+          echo "   Próxima ejecución programada: según calendario."
