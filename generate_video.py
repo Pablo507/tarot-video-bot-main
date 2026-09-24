@@ -1,15 +1,7 @@
 """
 generate_video.py
 Genera videos de tarot por signo zodiacal (YouTube Shorts / TikTok 9:16, 720p).
-Optimizado con la URL visible desde el fotograma 0 para máxima conversión en perfil.
-
-Stack:
-  - Groq (openai/gpt-oss-120b) → guión personalizado y extendido por signo (con respaldo robusto)
-  - Google Cloud TTS         → voz en español Neural2
-  - Pexels API               → fondo específico por carta
-  - MoviePy + PIL            → composición 720x1280 (720p Shorts)
-
-Estética: paleta de tarotgratis.online
+Optimizado con gancho de 2s para retención + URL visible para conversión.
 """
 
 import PIL.Image as _pil_img
@@ -55,68 +47,44 @@ C_TEAL       = (15, 171, 162)
 C_TEXT       = (253, 248, 240)
 C_MUTED      = (160, 147, 176)
 
-# ── Signos zodiacales (con datos para guiones únicos) ────────────────────────
+# ── Signos zodiacales ────────────────────────────────────────────────────────
 SIGNOS = [
-    {
-        "nombre": "Aries", "emoji": "♈", "fechas": "21 mar – 19 abr",
-        "elemento": "Fuego", "planeta": "Marte", "tono": "impulsivo, valiente, directo",
-        "temas": ["acción inmediata", "liderazgo", "coraje para empezar algo nuevo", "paciencia con los demás"],
-    },
-    {
-        "nombre": "Tauro", "emoji": "♉", "fechas": "20 abr – 20 may",
-        "elemento": "Tierra", "planeta": "Venus", "tono": "sensual, estable, terco",
-        "temas": ["seguridad material", "placeres simples", "constancia", "soltar lo que ya no nutre"],
-    },
-    {
-        "nombre": "Géminis", "emoji": "♊", "fechas": "21 may – 20 jun",
-        "elemento": "Aire", "planeta": "Mercurio", "tono": "curioso, comunicativo, disperso",
-        "temas": ["comunicación", "aprendizaje", "decisiones con la mente clara", "elegir una sola cosa"],
-    },
-    {
-        "nombre": "Cáncer", "emoji": "♋", "fechas": "21 jun – 22 jul",
-        "elemento": "Agua", "planeta": "Luna", "tono": "emocional, protector, nostálgico",
-        "temas": ["familia", "hogar", "sanar heridas del pasado", "poner límites emocionales"],
-    },
-    {
-        "nombre": "Leo", "emoji": "♌", "fechas": "23 jul – 22 ago",
-        "elemento": "Fuego", "planeta": "Sol", "tono": "dramático, generoso, orgulloso",
-        "temas": ["brillar sin culpa", "creatividad", "reconocimiento", "humildad"],
-    },
-    {
-        "nombre": "Virgo", "emoji": "♍", "fechas": "23 ago – 22 sep",
-        "elemento": "Tierra", "planeta": "Mercurio", "tono": "analítico, perfeccionista, servicial",
-        "temas": ["orden", "salud", "servicio a otros", "soltar el perfeccionismo"],
-    },
-    {
-        "nombre": "Libra", "emoji": "♎", "fechas": "23 sep – 22 oct",
-        "elemento": "Aire", "planeta": "Venus", "tono": "diplomático, estético, indeciso",
-        "temas": ["relaciones", "belleza", "equilibrio", "decidir sin miedo al conflicto"],
-    },
-    {
-        "nombre": "Escorpio", "emoji": "♏", "fechas": "23 oct – 21 nov",
-        "elemento": "Agua", "planeta": "Plutón", "tono": "intenso, transformador, reservado",
-        "temas": ["transformación profunda", "poder personal", "sanar celos", "confiar de nuevo"],
-    },
-    {
-        "nombre": "Sagitario", "emoji": "♐", "fechas": "22 nov – 21 dic",
-        "elemento": "Fuego", "planeta": "Júpiter", "tono": "aventurero, filosófico, exagerado",
-        "temas": ["expansión", "viajes", "fe en el futuro", "compromiso concreto"],
-    },
-    {
-        "nombre": "Capricornio", "emoji": "♑", "fechas": "22 dic – 19 ene",
-        "elemento": "Tierra", "planeta": "Saturno", "tono": "disciplinado, ambicioso, frío",
-        "temas": ["metas a largo plazo", "responsabilidad", "trabajo", "permitirse disfrutar"],
-    },
-    {
-        "nombre": "Acuario", "emoji": "♒", "fechas": "20 ene – 18 feb",
-        "elemento": "Aire", "planeta": "Urano", "tono": "rebelde, original, distante",
-        "temas": ["libertad", "innovación", "amistades", "conectar con las emociones"],
-    },
-    {
-        "nombre": "Piscis", "emoji": "♓", "fechas": "19 feb – 20 mar",
-        "elemento": "Agua", "planeta": "Neptuno", "tono": "soñador, compasivo, evasivo",
-        "temas": ["intuición", "arte", "espiritualidad", "poner límites y aterrizar sueños"],
-    },
+    {"nombre": "Aries", "emoji": "♈", "fechas": "21 mar – 19 abr", "elemento": "Fuego", "planeta": "Marte",
+     "tono": "impulsivo, valiente, directo",
+     "temas": ["acción inmediata", "liderazgo", "coraje para empezar algo nuevo", "paciencia con los demás"]},
+    {"nombre": "Tauro", "emoji": "♉", "fechas": "20 abr – 20 may", "elemento": "Tierra", "planeta": "Venus",
+     "tono": "sensual, estable, terco",
+     "temas": ["seguridad material", "placeres simples", "constancia", "soltar lo que ya no nutre"]},
+    {"nombre": "Géminis", "emoji": "♊", "fechas": "21 may – 20 jun", "elemento": "Aire", "planeta": "Mercurio",
+     "tono": "curioso, comunicativo, disperso",
+     "temas": ["comunicación", "aprendizaje", "decisiones con la mente clara", "elegir una sola cosa"]},
+    {"nombre": "Cáncer", "emoji": "♋", "fechas": "21 jun – 22 jul", "elemento": "Agua", "planeta": "Luna",
+     "tono": "emocional, protector, nostálgico",
+     "temas": ["familia", "hogar", "sanar heridas del pasado", "poner límites emocionales"]},
+    {"nombre": "Leo", "emoji": "♌", "fechas": "23 jul – 22 ago", "elemento": "Fuego", "planeta": "Sol",
+     "tono": "dramático, generoso, orgulloso",
+     "temas": ["brillar sin culpa", "creatividad", "reconocimiento", "humildad"]},
+    {"nombre": "Virgo", "emoji": "♍", "fechas": "23 ago – 22 sep", "elemento": "Tierra", "planeta": "Mercurio",
+     "tono": "analítico, perfeccionista, servicial",
+     "temas": ["orden", "salud", "servicio a otros", "soltar el perfeccionismo"]},
+    {"nombre": "Libra", "emoji": "♎", "fechas": "23 sep – 22 oct", "elemento": "Aire", "planeta": "Venus",
+     "tono": "diplomático, estético, indeciso",
+     "temas": ["relaciones", "belleza", "equilibrio", "decidir sin miedo al conflicto"]},
+    {"nombre": "Escorpio", "emoji": "♏", "fechas": "23 oct – 21 nov", "elemento": "Agua", "planeta": "Plutón",
+     "tono": "intenso, transformador, reservado",
+     "temas": ["transformación profunda", "poder personal", "sanar celos", "confiar de nuevo"]},
+    {"nombre": "Sagitario", "emoji": "♐", "fechas": "22 nov – 21 dic", "elemento": "Fuego", "planeta": "Júpiter",
+     "tono": "aventurero, filosófico, exagerado",
+     "temas": ["expansión", "viajes", "fe en el futuro", "compromiso concreto"]},
+    {"nombre": "Capricornio", "emoji": "♑", "fechas": "22 dic – 19 ene", "elemento": "Tierra", "planeta": "Saturno",
+     "tono": "disciplinado, ambicioso, frío",
+     "temas": ["metas a largo plazo", "responsabilidad", "trabajo", "permitirse disfrutar"]},
+    {"nombre": "Acuario", "emoji": "♒", "fechas": "20 ene – 18 feb", "elemento": "Aire", "planeta": "Urano",
+     "tono": "rebelde, original, distante",
+     "temas": ["libertad", "innovación", "amistades", "conectar con las emociones"]},
+    {"nombre": "Piscis", "emoji": "♓", "fechas": "19 feb – 20 mar", "elemento": "Agua", "planeta": "Neptuno",
+     "tono": "soñador, compasivo, evasivo",
+     "temas": ["intuición", "arte", "espiritualidad", "poner límites y aterrizar sueños"]},
 ]
 
 # ── Arcanos mayores ───────────────────────────────────────────────────────────
@@ -165,15 +133,12 @@ CARD_PEXELS = {
 
 DEFAULT_QUERIES = ["mystical dark purple", "night sky stars", "smoke dark background"]
 
-# Voces TTS por elemento — TODAS FEMENINAS (Neural2-B es masculina, no se usa)
 VOCES_POR_ELEMENTO = {
     "Fuego":  "es-US-Neural2-A",
     "Tierra": "es-US-Neural2-A",
     "Aire":   "es-US-Journey-F",
     "Agua":   "es-US-Neural2-A",
 }
-
-# Voces que NO aceptan el parámetro `pitch`
 VOCES_SIN_PITCH = {"es-US-Journey-F", "es-US-Journey-D", "es-US-Journey-O"}
 
 
@@ -239,10 +204,16 @@ Escribí un guión ORIGINAL e IRREPETIBLE para un YouTube Short de tarot para el
 REGLAS OBLIGATORIAS:
 1. El tono debe ser {signo['tono']}. Escribí como si le hablaras SOLO a un {signo['nombre']} de verdad.
 2. Mencioná al menos DOS de estos temas específicos: {temas}.
-3. NO uses frases genéricas como "el universo te pide", "es momento de fluir", "confía en el proceso" a menos que las desarrolles con una imagen concreta.
-4. Incluí una metáfora o imagen sensorial distinta (ej: "como una raíz que rompe el asfalto", "como el primer café de la mañana").
+3. NO uses frases genéricas como "el universo te pide", "es momento de fluir", "confía en el proceso".
+4. Incluí una metáfora o imagen sensorial distinta.
 5. Máximo 110 palabras, mínimo 90. Ritmo natural para locución.
-6. PROHIBIDO empezar con "Hola {signo['nombre']}" o "Querido {signo['nombre']}". Arrancá con una imagen, una pregunta o una afirmación fuerte.
+6. La PRIMERA FRASE debe ser un GANCHO de MÁXIMO 10 PALABRAS que atrape en 2 segundos. Ejemplos válidos:
+   - "Capricornio, si estás cansado, esto es para vos."
+   - "Atención Aries: algo cambió hoy."
+   - "Géminis, dejá lo que estás haciendo."
+   - "Escorpio, esto te va a doler pero te va a servir."
+   - "Tauro, no sigas scrolleando."
+   PROHIBIDO empezar con "Hola {signo['nombre']}", "Querido {signo['nombre']}", "Hoy es un día especial" o "El universo tiene algo para vos".
 7. Terminá EXACTAMENTE con esta frase (sin cambiarla): "Para recibir tu carta del tarot cada mañana en tu WhatsApp, suscribite en tarotgratis punto online por menos de cinco dólares al mes"
 
 Variación semilla (ignorala en el texto, solo para forzar originalidad): {seed}
@@ -272,8 +243,9 @@ Devolvé UNICAMENTE un objeto JSON válido, sin markdown, con estas claves:
     except json.JSONDecodeError:
         tema1, tema2 = random.sample(signo["temas"], 2)
         fallback_text = (
-            f"{card} llega a tu vida, {signo['nombre']}, y no es casualidad. "
-            f"Como {signo['elemento'].lower()} que sos, hoy sentís que algo se mueve por dentro. "
+            f"{signo['nombre']}, dejá lo que estás haciendo. "
+            f"{card} tiene algo urgente para vos hoy. "
+            f"Como {signo['elemento'].lower()} que sos, sentís que algo se mueve por dentro. "
             f"El arcano te habla de {tema1} y te invita a mirar de cerca {tema2}. "
             f"No es momento de quedarte quieto: es momento de escuchar esa vocecita que sabe. "
             f"Si dudás, respirá profundo tres veces y preguntate qué harías si no tuvieras miedo. "
@@ -310,7 +282,6 @@ def generate_voice(script: str, output_path: str, elemento: str = "Fuego") -> fl
         ssml_gender=texttospeech.SsmlVoiceGender.FEMALE,
     )
 
-    # Journey no soporta pitch → lo omitimos para esa familia
     if voice_name in VOCES_SIN_PITCH:
         audio_config = texttospeech.AudioConfig(
             audio_encoding=texttospeech.AudioEncoding.MP3,
@@ -368,6 +339,75 @@ def download_pexels_video(card: str, output_path: str) -> bool:
             for chunk in r.iter_content(chunk_size=65536):
                 out.write(chunk)
     return True
+
+
+def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
+    """
+    Overlay de GANCHO para los primeros 2 segundos.
+    Pantalla completa, texto grande, pregunta directa al signo.
+    """
+    w, h = VIDEO_W, VIDEO_H
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+
+    # Fondo oscuro con gradiente (de arriba a abajo)
+    bg = Image.new("RGBA", (w, h))
+    for y in range(h):
+        t = y / h
+        r = int(C_BG_DEEP[0] * (1 - t) + C_BG_MID[0] * t)
+        g = int(C_BG_DEEP[1] * (1 - t) + C_BG_MID[1] * t)
+        b = int(C_BG_DEEP[2] * (1 - t) + C_BG_MID[2] * t)
+        for x in range(w):
+            bg.putpixel((x, y), (r, g, b, 230))
+    img = Image.alpha_composite(img, bg)
+    draw = ImageDraw.Draw(img)
+
+    # Línea decorativa dorada arriba
+    for xi in range(140, w - 140):
+        t = (xi - 140) / (w - 280)
+        intensity = 1 - abs(t * 2 - 1)
+        ga = int(220 * intensity)
+        draw.point((xi, 320), fill=(*C_GOLD, ga))
+
+    # Pregunta grande: ¿SOS CAPRICORNIO?
+    font_hook, font_sub, font_small = _load_fonts(72, 44, 32)
+    hook_text = f"¿SOS {signo['nombre'].upper()}?"
+    bbox = draw.textbbox((0, 0), hook_text, font=font_hook)
+    hx = (w - (bbox[2] - bbox[0])) // 2
+    # Sombra
+    draw.text((hx + 4, 474), hook_text, font=font_hook, fill=(0, 0, 0, 240))
+    # Texto dorado
+    draw.text((hx, 470), hook_text, font=font_hook, fill=(*C_GOLD_LIGHT, 255))
+
+    # Línea decorativa dorada abajo
+    for xi in range(180, w - 180):
+        t = (xi - 180) / (w - 360)
+        intensity = 1 - abs(t * 2 - 1)
+        ga = int(200 * intensity)
+        draw.point((xi, 590), fill=(*C_GOLD, ga))
+
+    # Subtexto: "El Mago tiene algo para vos"
+    sub_text = f"{card} tiene algo para vos"
+    bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
+    sx = (w - (bbox[2] - bbox[0])) // 2
+    draw.text((sx + 2, 642), sub_text, font=font_sub, fill=(0, 0, 0, 230))
+    draw.text((sx, 640), sub_text, font=font_sub, fill=(*C_TEXT, 250))
+
+    # Hint: "Mirá hasta el final"
+    hint_text = "Mirá hasta el final"
+    bbox = draw.textbbox((0, 0), hint_text, font=font_small)
+    hx2 = (w - (bbox[2] - bbox[0])) // 2
+    draw.text((hx2, 760), hint_text, font=font_small, fill=(*C_MUTED, 240))
+
+    # Flecha simple abajo (3 triángulos apuntando abajo)
+    cx = w // 2
+    for i, y0 in enumerate([810, 835, 860]):
+        alpha = 200 - i * 40
+        draw.polygon(
+            [(cx - 30, y0), (cx + 30, y0), (cx, y0 + 22)],
+            fill=(*C_GOLD, alpha),
+        )
+
+    return np.array(img)
 
 
 def _make_title_overlay(signo: dict, card: str) -> np.ndarray:
@@ -514,7 +554,6 @@ def _make_mid_cta_overlay() -> np.ndarray:
 def _make_free_overlay() -> np.ndarray:
     w, h = VIDEO_W, 180
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-
     bg = Image.new("RGBA", (w, h))
     for y in range(h):
         alpha = int(220 * (y / h))
@@ -522,26 +561,21 @@ def _make_free_overlay() -> np.ndarray:
             bg.putpixel((x, y), (*C_BG_DEEP, alpha))
     img = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
-
     font_big, font_med, font_sm = _load_fonts(40, 28, 20)
-
     line1 = "📲 Descarga tu carta gratis en:"
     bbox = draw.textbbox((0, 0), line1, font=font_sm)
     draw.text(((w-(bbox[2]-bbox[0]))//2, 20), line1, font=font_sm, fill=(*C_TEXT,240))
-
     url = "tarotgratis.online"
     bbox = draw.textbbox((0, 0), url, font=font_big)
     x = (w-(bbox[2]-bbox[0]))//2
     draw.text((x+2, 70), url, font=font_big, fill=(0,0,0,240))
     draw.text((x, 68), url, font=font_big, fill=(*C_GOLD,255))
-
     return np.array(img)
 
 
 def _make_pricing_overlay() -> np.ndarray:
     w, h = VIDEO_W, 280
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-
     bg = Image.new("RGBA", (w, h))
     for y in range(h):
         alpha = int(220 * (y / h))
@@ -549,15 +583,12 @@ def _make_pricing_overlay() -> np.ndarray:
             bg.putpixel((x, y), (*C_BG_DEEP, alpha))
     img = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
-
     font_big, font_med, font_sm = _load_fonts(52, 34, 24)
-
     precio = "$4.99 USD / mes"
     bbox = draw.textbbox((0, 0), precio, font=font_big)
     x = (w-(bbox[2]-bbox[0]))//2
     draw.text((x+2, 20), precio, font=font_big, fill=(0,0,0,240))
     draw.text((x, 18), precio, font=font_big, fill=(*C_GOLD,255))
-
     beneficios = [
         "📲 Carta del día en tu WhatsApp",
         "🔮 Interpretación personalizada por IA",
@@ -566,13 +597,11 @@ def _make_pricing_overlay() -> np.ndarray:
     for i, texto in enumerate(beneficios):
         y = 90 + i * 35
         draw.text((40, y), texto, font=font_sm, fill=(*C_TEXT,240))
-
     cta = "tarotgratis.online"
     bbox = draw.textbbox((0, 0), cta, font=font_big)
     x = (w-(bbox[2]-bbox[0]))//2
     draw.text((x+2, 210), cta, font=font_big, fill=(0,0,0,240))
     draw.text((x, 208), cta, font=font_big, fill=(*C_GOLD,255))
-
     return np.array(img)
 
 
@@ -607,11 +636,22 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type=
         .set_duration(total_duration)
     )
 
+    # ── NUEVO: Hook overlay de 0 a 2s (pantalla completa) ────────────────────
+    hook_clip = (
+        ImageClip(_make_hook_overlay(signo, card))
+        .set_start(0.0)
+        .set_duration(2.0)
+        .set_position(("center", 0))
+        .crossfadeout(0.4)
+    )
+
+    # ── NUEVO: Title overlay de 2s en adelante (con fade in) ─────────────────
     title_clip = (
         ImageClip(_make_title_overlay(signo, card))
-        .set_start(0.0)
-        .set_duration(total_duration)
+        .set_start(2.0)
+        .set_duration(total_duration - 2.0)
         .set_position(("center", 60))
+        .crossfadein(0.4)
     )
 
     mid_start = total_duration * 0.40
@@ -633,7 +673,7 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type=
         .crossfadein(1.0)
     )
 
-    final_clips = [bg, dark, purple_tint, title_clip, mid_clip, cta_clip]
+    final_clips = [bg, dark, purple_tint, hook_clip, title_clip, mid_clip, cta_clip]
 
     if cta_type == "paid":
         pricing_clip = (
@@ -697,7 +737,6 @@ def generate(signo_idx: int, cta_type: str = "none", prev_scripts: list = None) 
     print("📝  Generando guión...")
     reading = generate_reading(signo, card)
 
-    # Solo 1 reintento + pausa de 6s → evita 429 de Groq
     if prev_scripts:
         intentos = 0
         while _is_too_similar(reading["script"], prev_scripts) and intentos < 1:
