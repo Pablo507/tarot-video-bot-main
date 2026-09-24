@@ -141,6 +141,14 @@ VOCES_POR_ELEMENTO = {
 }
 VOCES_SIN_PITCH = {"es-US-Journey-F", "es-US-Journey-D", "es-US-Journey-O"}
 
+# Paths de fuentes bold usados por _fit_font_to_width
+_BOLD_FONT_PATHS = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+    "C:/Windows/Fonts/georgiab.ttf",
+    "C:/Windows/Fonts/timesbd.ttf",
+]
+
 
 def get_card_for_sign(signo_idx: int) -> str:
     hoy = datetime.now()
@@ -150,12 +158,6 @@ def get_card_for_sign(signo_idx: int) -> str:
 
 
 def _load_fonts(size_large, size_medium, size_small):
-    bold_candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
-        "C:/Windows/Fonts/georgiab.ttf",
-        "C:/Windows/Fonts/timesbd.ttf",
-    ]
     reg_candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
@@ -170,10 +172,41 @@ def _load_fonts(size_large, size_medium, size_small):
                 continue
         return ImageFont.load_default()
     return (
-        try_load(bold_candidates, size_large),
-        try_load(bold_candidates, size_medium),
+        try_load(_BOLD_FONT_PATHS, size_large),
+        try_load(_BOLD_FONT_PATHS, size_medium),
         try_load(reg_candidates, size_small),
     )
+
+
+def _fit_font_to_width(text: str, max_width: int,
+                       initial_size: int, min_size: int = 36):
+    """
+    Devuelve una fuente que hace que `text` entre en `max_width` px.
+    Empieza desde initial_size y baja de a 2px hasta min_size.
+    """
+    size = initial_size
+    while size > min_size:
+        font = None
+        for p in _BOLD_FONT_PATHS:
+            try:
+                font = ImageFont.truetype(p, size)
+                break
+            except Exception:
+                continue
+        if font is None:
+            return ImageFont.load_default()
+        bbox = font.getbbox(text)
+        w = bbox[2] - bbox[0]
+        if w <= max_width:
+            return font
+        size -= 2
+    # último intento con min_size
+    for p in _BOLD_FONT_PATHS:
+        try:
+            return ImageFont.truetype(p, min_size)
+        except Exception:
+            continue
+    return ImageFont.load_default()
 
 
 def _is_too_similar(new_script: str, prev_scripts: list, umbral: float = 0.55) -> bool:
@@ -344,12 +377,12 @@ def download_pexels_video(card: str, output_path: str) -> bool:
 def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
     """
     Overlay de GANCHO para los primeros 2 segundos.
-    Pantalla completa, texto grande, pregunta directa al signo.
+    Pantalla completa, texto grande con auto-fit para que siempre entre.
     """
     w, h = VIDEO_W, VIDEO_H
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
 
-    # Fondo oscuro con gradiente (de arriba a abajo)
+    # Fondo oscuro con gradiente
     bg = Image.new("RGBA", (w, h))
     for y in range(h):
         t = y / h
@@ -361,6 +394,15 @@ def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
     img = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
 
+    # ── Hook principal: ¿SOS [SIGNO]? con auto-fit ────────────────────────────
+    hook_text = f"¿SOS {signo['nombre'].upper()}?"
+    font_hook = _fit_font_to_width(
+        hook_text,
+        max_width=w - 80,
+        initial_size=72,
+        min_size=40,
+    )
+
     # Línea decorativa dorada arriba
     for xi in range(140, w - 140):
         t = (xi - 140) / (w - 280)
@@ -368,14 +410,10 @@ def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
         ga = int(220 * intensity)
         draw.point((xi, 320), fill=(*C_GOLD, ga))
 
-    # Pregunta grande: ¿SOS CAPRICORNIO?
-    font_hook, font_sub, font_small = _load_fonts(72, 44, 32)
-    hook_text = f"¿SOS {signo['nombre'].upper()}?"
+    # Hook centrado
     bbox = draw.textbbox((0, 0), hook_text, font=font_hook)
     hx = (w - (bbox[2] - bbox[0])) // 2
-    # Sombra
     draw.text((hx + 4, 474), hook_text, font=font_hook, fill=(0, 0, 0, 240))
-    # Texto dorado
     draw.text((hx, 470), hook_text, font=font_hook, fill=(*C_GOLD_LIGHT, 255))
 
     # Línea decorativa dorada abajo
@@ -385,20 +423,36 @@ def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
         ga = int(200 * intensity)
         draw.point((xi, 590), fill=(*C_GOLD, ga))
 
-    # Subtexto: "El Mago tiene algo para vos"
+    # ── Subtexto: "[CARTA] tiene algo para vos" con auto-fit ──────────────────
     sub_text = f"{card} tiene algo para vos"
+    font_sub = _fit_font_to_width(
+        sub_text,
+        max_width=w - 80,
+        initial_size=44,
+        min_size=26,
+    )
     bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
     sx = (w - (bbox[2] - bbox[0])) // 2
     draw.text((sx + 2, 642), sub_text, font=font_sub, fill=(0, 0, 0, 230))
     draw.text((sx, 640), sub_text, font=font_sub, fill=(*C_TEXT, 250))
 
-    # Hint: "Mirá hasta el final"
+    # ── Hint: "Mirá hasta el final" ──────────────────────────────────────────
+    font_small = None
+    for p in _BOLD_FONT_PATHS:
+        try:
+            font_small = ImageFont.truetype(p, 32)
+            break
+        except Exception:
+            continue
+    if font_small is None:
+        font_small = ImageFont.load_default()
+
     hint_text = "Mirá hasta el final"
     bbox = draw.textbbox((0, 0), hint_text, font=font_small)
     hx2 = (w - (bbox[2] - bbox[0])) // 2
     draw.text((hx2, 760), hint_text, font=font_small, fill=(*C_MUTED, 240))
 
-    # Flecha simple abajo (3 triángulos apuntando abajo)
+    # Flechas abajo (3 triángulos apuntando abajo)
     cx = w // 2
     for i, y0 in enumerate([810, 835, 860]):
         alpha = 200 - i * 40
@@ -636,7 +690,7 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type=
         .set_duration(total_duration)
     )
 
-    # ── NUEVO: Hook overlay de 0 a 2s (pantalla completa) ────────────────────
+    # Hook overlay de 0 a 2s
     hook_clip = (
         ImageClip(_make_hook_overlay(signo, card))
         .set_start(0.0)
@@ -645,7 +699,7 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type=
         .crossfadeout(0.4)
     )
 
-    # ── NUEVO: Title overlay de 2s en adelante (con fade in) ─────────────────
+    # Title overlay de 2s en adelante
     title_clip = (
         ImageClip(_make_title_overlay(signo, card))
         .set_start(2.0)
