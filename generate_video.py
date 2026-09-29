@@ -1,7 +1,6 @@
 """
 generate_video.py
-Genera videos de tarot por signo zodiacal (YouTube Shorts / TikTok 9:16, 720p).
-Optimizado con gancho de 2s para retención + URL visible para conversión.
+v3.0 — Originalidad mejorada + variedad visual + cartas únicas por signo.
 """
 
 import PIL.Image as _pil_img
@@ -29,14 +28,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Resolución 720p (Shorts / TikTok 9:16) ────────────────────────────────────
 VIDEO_W    = 720
 VIDEO_H    = 1280
 FPS        = 24
 OUTPUT_DIR = Path("output_videos")
 TEMP_DIR   = Path("temp")
 
-# ── Paleta tarotgratis.online ─────────────────────────────────────────────────
 C_BG_DEEP    = (30, 20, 59)
 C_BG_MID     = (45, 30, 87)
 C_GOLD       = (201, 168, 76)
@@ -47,7 +44,36 @@ C_TEAL       = (15, 171, 162)
 C_TEXT       = (253, 248, 240)
 C_MUTED      = (160, 147, 176)
 
-# ── Signos zodiacales ────────────────────────────────────────────────────────
+# ─── FASE 3: Paletas de tinte (varían por video) ──────────────────────────────
+PALETAS_TINT = [
+    {"nombre": "purple", "color": (130, 43, 189), "opacity": 0.18},
+    {"nombre": "blue",   "color": (15, 40, 100),  "opacity": 0.22},
+    {"nombre": "wine",   "color": (90, 20, 60),   "opacity": 0.20},
+    {"nombre": "teal",   "color": (15, 80, 80),   "opacity": 0.20},
+    {"nombre": "indigo", "color": (50, 30, 120),  "opacity": 0.22},
+]
+
+# ─── FASE 2: Estructuras de guión que rotan ───────────────────────────────────
+SCRIPT_STRUCTURES = [
+    "PREGUNTA_DIRECTA",
+    "ESCENA_SENSORIAL",
+    "AFIRMACION_FUERTE",
+    "NOMBRE_DIRECTO",
+    "CONTRASTE",
+]
+
+# ─── FASE 2: Hooks de CTA que rotan ───────────────────────────────────────────
+CTA_HOOKS = [
+    "Si querés una carta como esta cada mañana, te la mando por WhatsApp.",
+    "Esto que sentís hoy, mañana puede ser distinto. Te aviso por WhatsApp.",
+    "No dejes que la energía del día se te pase. Te la mando a tu WhatsApp.",
+    "Tu carta de mañana ya está escrita. Te la cuento por WhatsApp.",
+    "Cada mañana tengo algo nuevo para decirte. Te lo mando por WhatsApp.",
+]
+
+# ─── FASE 1: Offsets únicos por signo (garantizan 12 cartas distintas/día) ────
+SIGN_CARD_OFFSETS = [0, 7, 14, 3, 10, 17, 4, 11, 18, 5, 12, 19]
+
 SIGNOS = [
     {"nombre": "Aries", "emoji": "♈", "fechas": "21 mar – 19 abr", "elemento": "Fuego", "planeta": "Marte",
      "tono": "impulsivo, valiente, directo",
@@ -87,7 +113,6 @@ SIGNOS = [
      "temas": ["intuición", "arte", "espiritualidad", "poner límites y aterrizar sueños"]},
 ]
 
-# ── Arcanos mayores ───────────────────────────────────────────────────────────
 ARCANOS = [
     "El Loco", "El Mago", "La Sacerdotisa", "La Emperatriz", "El Emperador",
     "El Hierofante", "Los Enamorados", "El Carro", "La Fuerza", "El Ermitaño",
@@ -106,32 +131,33 @@ CARD_GLYPHS = {
     "La Luna": "🌙", "El Sol": "☀️", "El Juicio": "🎺", "El Mundo": "🌍",
 }
 
+# ─── FASE 3: Más queries por carta (variedad visual) ──────────────────────────
 CARD_PEXELS = {
-    "El Loco":               ["adventure path nature", "freedom road", "leap cliff"],
-    "El Mago":               ["mystical candle purple", "magic ritual dark", "crystal ball"],
-    "La Sacerdotisa":        ["moon night purple", "mystery veil", "moonlight dark"],
-    "La Emperatriz":         ["nature green abundance", "flowers garden", "earth goddess"],
-    "El Emperador":          ["mountain peak", "stone throne", "power dark sky"],
-    "El Hierofante":         ["ancient temple", "spiritual ceremony", "sacred candle"],
-    "Los Enamorados":        ["couple sunset", "heart light bokeh", "love romance"],
-    "El Carro":              ["road ahead night", "speed motion blur", "triumph victory"],
-    "La Fuerza":             ["lion majestic", "strength nature", "powerful animal"],
-    "La Ermitaño":           ["lantern night dark", "solitude path fog", "mystical forest"],
-    "La Rueda de la Fortuna":["spinning stars galaxy", "cosmic wheel", "universe rotation"],
-    "La Justicia":           ["scales balance", "law justice", "symmetry architecture"],
-    "La Colgado":            ["water reflection", "hanging tree", "peaceful surrender"],
-    "La Muerte":             ["autumn leaves falling", "transformation dark", "rebirth nature"],
-    "La Templanza":          ["water pour light", "balance zen", "flowing river"],
-    "El Diablo":             ["fire dark flames", "smoke dramatic", "red dark abstract"],
-    "La Torre":              ["lightning storm dramatic", "tower dark", "storm clouds"],
-    "La Estrella":           ["night sky stars", "galaxy milky way", "star field purple"],
-    "La Luna":               ["full moon night", "moon reflection water", "lunar mystical"],
-    "El Sol":                ["sunrise golden", "sunlight rays", "bright sun nature"],
-    "La Juicio":             ["sunrise dramatic", "awakening light", "epic sky clouds"],
-    "La Mundo":              ["earth globe space", "world complete", "universe harmony"],
+    "El Loco":               ["adventure path nature", "freedom road", "leap cliff", "sunrise hiking trail", "wanderlust mountains"],
+    "El Mago":               ["mystical candle purple", "magic ritual dark", "crystal ball", "alchemy tools", "incense smoke"],
+    "La Sacerdotisa":        ["moon night purple", "mystery veil", "moonlight dark", "fog forest night", "veiled woman silhouette"],
+    "La Emperatriz":         ["nature green abundance", "flowers garden", "earth goddess", "golden wheat field", "fertile garden"],
+    "El Emperador":          ["mountain peak", "stone throne", "power dark sky", "rocky cliff sunset", "throne ancient"],
+    "El Hierofante":         ["ancient temple", "spiritual ceremony", "sacred candle", "church candles", "monk silhouette"],
+    "Los Enamorados":        ["couple sunset", "heart light bokeh", "love romance", "holding hands sunset", "two silhouettes"],
+    "El Carro":              ["road ahead night", "speed motion blur", "triumph victory", "highway headlights", "night drive"],
+    "La Fuerza":             ["lion majestic", "strength nature", "powerful animal", "lion portrait", "mountain strength"],
+    "La Ermitaño":           ["lantern night dark", "solitude path fog", "mystical forest", "old man lantern", "cave light"],
+    "La Rueda de la Fortuna":["spinning stars galaxy", "cosmic wheel", "universe rotation", "galaxy spin", "clock mechanism"],
+    "La Justicia":           ["scales balance", "law justice", "symmetry architecture", "marble statue blindfold", "sword light"],
+    "La Colgado":            ["water reflection", "hanging tree", "peaceful surrender", "man hanging rope", "still lake"],
+    "La Muerte":             ["autumn leaves falling", "transformation dark", "rebirth nature", "skeleton skull art", "withered rose"],
+    "La Templanza":          ["water pour light", "balance zen", "flowing river", "angel pouring water", "two cups"],
+    "El Diablo":             ["fire dark flames", "smoke dramatic", "red dark abstract", "red smoke dark", "horned shadow"],
+    "La Torre":              ["lightning storm dramatic", "tower dark", "storm clouds", "tower ruins", "lightning strike"],
+    "La Estrella":           ["night sky stars", "galaxy milky way", "star field purple", "blue starry sky", "constellation"],
+    "La Luna":               ["full moon night", "moon reflection water", "lunar mystical", "wolf howling moon", "crescent moon dark"],
+    "El Sol":                ["sunrise golden", "sunlight rays", "bright sun nature", "sunflower closeup", "golden hour sky"],
+    "La Juicio":             ["sunrise dramatic", "awakening light", "epic sky clouds", "clouds parted light", "trumpet sky"],
+    "La Mundo":              ["earth globe space", "world complete", "universe harmony", "planet space art", "flowers circle"],
 }
 
-DEFAULT_QUERIES = ["mystical dark purple", "night sky stars", "smoke dark background"]
+DEFAULT_QUERIES = ["mystical dark purple", "night sky stars", "smoke dark background", "purple abstract", "moon clouds"]
 
 VOCES_POR_ELEMENTO = {
     "Fuego":  "es-US-Neural2-A",
@@ -141,7 +167,6 @@ VOCES_POR_ELEMENTO = {
 }
 VOCES_SIN_PITCH = {"es-US-Journey-F", "es-US-Journey-D", "es-US-Journey-O"}
 
-# Paths de fuentes bold usados por _fit_font_to_width
 _BOLD_FONT_PATHS = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
@@ -150,10 +175,15 @@ _BOLD_FONT_PATHS = [
 ]
 
 
+# ─── FASE 1: Cartas únicas por signo ──────────────────────────────────────────
 def get_card_for_sign(signo_idx: int) -> str:
+    """
+    Asigna una carta DISTINTA a cada signo cada día.
+    Los 12 signos siempre reciben 12 cartas diferentes.
+    """
     hoy = datetime.now()
-    base = (hoy.year * 31 + hoy.month * 17 + hoy.day)
-    idx = (base + signo_idx * 11) % len(ARCANOS)
+    day_offset = (hoy.year * 31 + hoy.month * 17 + hoy.day) % len(ARCANOS)
+    idx = (day_offset + SIGN_CARD_OFFSETS[signo_idx]) % len(ARCANOS)
     return ARCANOS[idx]
 
 
@@ -178,12 +208,7 @@ def _load_fonts(size_large, size_medium, size_small):
     )
 
 
-def _fit_font_to_width(text: str, max_width: int,
-                       initial_size: int, min_size: int = 36):
-    """
-    Devuelve una fuente que hace que `text` entre en `max_width` px.
-    Empieza desde initial_size y baja de a 2px hasta min_size.
-    """
+def _fit_font_to_width(text: str, max_width: int, initial_size: int, min_size: int = 36):
     size = initial_size
     while size > min_size:
         font = None
@@ -200,7 +225,6 @@ def _fit_font_to_width(text: str, max_width: int,
         if w <= max_width:
             return font
         size -= 2
-    # último intento con min_size
     for p in _BOLD_FONT_PATHS:
         try:
             return ImageFont.truetype(p, min_size)
@@ -223,46 +247,52 @@ def _is_too_similar(new_script: str, prev_scripts: list, umbral: float = 0.55) -
     return False
 
 
+# ─── FASE 2: generate_reading con estructuras variables ──────────────────────
 def generate_reading(signo: dict, card: str) -> dict:
     client = Groq(api_key=os.environ["GROQ_API_KEY"])
     hoy = datetime.now().strftime("%d de %B de %Y")
 
     temas = ", ".join(signo["temas"])
     seed = random.randint(1, 99999)
+    structure = random.choice(SCRIPT_STRUCTURES)
+    cta_hook  = random.choice(CTA_HOOKS)
 
     prompt = f"""Eres un tarotista profesional con voz propia, NO un generador de plantillas.
 
-Escribí un guión ORIGINAL e IRREPETIBLE para un YouTube Short de tarot para el signo {signo['nombre']} ({signo['elemento']}, regido por {signo['planeta']}) con la carta "{card}".
+Escribí un guión ORIGINAL para un TikTok de tarot para el signo {signo['nombre']} ({signo['elemento']}, regido por {signo['planeta']}) con la carta "{card}".
 
-REGLAS OBLIGATORIAS:
-1. El tono debe ser {signo['tono']}. Escribí como si le hablaras SOLO a un {signo['nombre']} de verdad.
-2. Mencioná al menos DOS de estos temas específicos: {temas}.
-3. NO uses frases genéricas como "el universo te pide", "es momento de fluir", "confía en el proceso".
-4. Incluí una metáfora o imagen sensorial distinta.
-5. Máximo 110 palabras, mínimo 90. Ritmo natural para locución.
-6. La PRIMERA FRASE debe ser un GANCHO de MÁXIMO 10 PALABRAS que atrape en 2 segundos. Ejemplos válidos:
-   - "Capricornio, si estás cansado, esto es para vos."
-   - "Atención Aries: algo cambió hoy."
-   - "Géminis, dejá lo que estás haciendo."
-   - "Escorpio, esto te va a doler pero te va a servir."
-   - "Tauro, no sigas scrolleando."
-   PROHIBIDO empezar con "Hola {signo['nombre']}", "Querido {signo['nombre']}", "Hoy es un día especial" o "El universo tiene algo para vos".
-7. Terminá EXACTAMENTE con esta frase (sin cambiarla): "Para recibir tu carta del tarot cada mañana en tu WhatsApp, suscribite en tarotgratis punto online por menos de cinco dólares al mes"
+ESTRUCTURA OBLIGATORIA para este guión: **{structure}**
 
-Variación semilla (ignorala en el texto, solo para forzar originalidad): {seed}
+- PREGUNTA_DIRECTA: arrancá con una pregunta existencial fuerte (ej: "¿Cuánto tiempo vas a seguir esperando?"). NO menciones el signo en la primera frase.
+- ESCENA_SENSORIAL: arrancá con una imagen concreta y física (ej: "Hay algo que se está rompiendo por dentro, como una rama que no aguanta más peso").
+- AFIRMACION_FUERTE: arrancá con algo controversial o brutalmente honesto (ej: "Estás agotado y lo disimulás muy bien").
+- NOMBRE_DIRECTO: llamá al signo por su nombre de forma íntima (ej: "Aries, pará un segundo").
+- CONTRASTE: contrastá al signo con los demás (ej: "Mientras todos avanzan, vos estás en pausa").
 
-Devolvé UNICAMENTE un objeto JSON válido, sin markdown, con estas claves:
+REGLAS:
+1. Tono: {signo['tono']}. Hablale a UN {signo['nombre']} específico, no a un público.
+2. Mencioná AL MENOS DOS de estos temas: {temas}.
+3. PROHIBIDO usar: "el universo te pide", "es momento de fluir", "confía en el proceso", "todo sucede por una razón", "estás en un viaje".
+4. Incluí UNA metáfora sensorial concreta y distinta.
+5. Máximo 110 palabras, mínimo 90.
+6. La PRIMERA FRASE debe ser un gancho de máximo 10 palabras que atrape en 2 segundos.
+7. Después del desarrollo, incluí esta frase de transición (palabra por palabra): "{cta_hook}"
+8. Terminá EXACTAMENTE con: "Para recibir tu carta del tarot cada mañana en tu WhatsApp, suscribite en tarotgratis punto online por menos de cinco dólares al mes"
+
+Variación semilla (ignorala en el texto): {seed}
+
+Devolvé SOLO un JSON válido sin markdown:
 {{
   "title": "{signo['nombre'].upper()} HOY | {card} | Tarot {hoy}",
   "script": "tu guión aquí",
   "description": "🔮 Tarot de hoy para {signo['nombre']} con {card}. Recibí tu carta diaria en WhatsApp 👇",
-  "tags": ["tarot", "{signo['nombre'].lower()}", "tarot diario", "carta del día", "tarot gratis", "tarot online", "{signo['elemento'].lower()}"]
+  "tags": ["tarot", "{signo['nombre'].lower()}", "tarot diario", "carta del día", "tarot gratis", "tarotonline", "{signo['elemento'].lower()}"]
 }}"""
 
     resp = client.chat.completions.create(
         model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": prompt}],
-        temperature=1.05,
+        temperature=1.10,
         top_p=0.95,
         max_tokens=600,
     )
@@ -340,29 +370,38 @@ def generate_voice(script: str, output_path: str, elemento: str = "Fuego") -> fl
     return duration
 
 
+# ─── FASE 3: Pexels con más intentos y variedad ──────────────────────────────
 def download_pexels_video(card: str, output_path: str) -> bool:
     api_key = os.environ["PEXELS_API_KEY"]
     queries = CARD_PEXELS.get(card, DEFAULT_QUERIES)
-    query   = random.choice(queries)
-    print(f"   Pexels: '{query}'...")
+    # barajar y probar varias queries hasta encontrar resultados
+    random.shuffle(queries)
+    fallbacks = ["dark mystical purple", "night sky stars", "purple abstract background"]
+    attempt_queries = queries[:2] + fallbacks
 
     videos = []
-    for attempt_query in [query, "dark mystical purple", "night sky stars"]:
-        resp = requests.get(
-            "https://api.pexels.com/videos/search",
-            headers={"Authorization": api_key},
-            params={"query": attempt_query, "per_page": 10, "size": "medium"},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        videos = resp.json().get("videos", [])
-        if videos:
-            break
+    for attempt_query in attempt_queries:
+        print(f"   Pexels: '{attempt_query}'...")
+        try:
+            resp = requests.get(
+                "https://api.pexels.com/videos/search",
+                headers={"Authorization": api_key},
+                params={"query": attempt_query, "per_page": 15, "size": "medium"},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            videos = resp.json().get("videos", [])
+            if videos:
+                break
+        except Exception as e:
+            print(f"   ⚠️  Error Pexels: {e}")
+            continue
 
     if not videos:
         return False
 
-    video  = random.choice(videos[:6])
+    # Elegir un video AL AZAR entre los primeros 12 para variar
+    video  = random.choice(videos[:12])
     files  = sorted(video.get("video_files", []), key=lambda f: f.get("width", 0))
     chosen = next((f for f in reversed(files) if f.get("width", 9999) <= 1920), files[-1])
 
@@ -375,14 +414,9 @@ def download_pexels_video(card: str, output_path: str) -> bool:
 
 
 def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
-    """
-    Overlay de GANCHO para los primeros 2 segundos.
-    Pantalla completa, texto grande con auto-fit para que siempre entre.
-    """
     w, h = VIDEO_W, VIDEO_H
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
 
-    # Fondo oscuro con gradiente
     bg = Image.new("RGBA", (w, h))
     for y in range(h):
         t = y / h
@@ -394,49 +428,33 @@ def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
     img = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
 
-    # ── Hook principal: ¿SOS [SIGNO]? con auto-fit ────────────────────────────
     hook_text = f"¿SOS {signo['nombre'].upper()}?"
-    font_hook = _fit_font_to_width(
-        hook_text,
-        max_width=w - 80,
-        initial_size=72,
-        min_size=40,
-    )
+    font_hook = _fit_font_to_width(hook_text, max_width=w - 80, initial_size=72, min_size=40)
 
-    # Línea decorativa dorada arriba
     for xi in range(140, w - 140):
         t = (xi - 140) / (w - 280)
         intensity = 1 - abs(t * 2 - 1)
         ga = int(220 * intensity)
         draw.point((xi, 320), fill=(*C_GOLD, ga))
 
-    # Hook centrado
     bbox = draw.textbbox((0, 0), hook_text, font=font_hook)
     hx = (w - (bbox[2] - bbox[0])) // 2
     draw.text((hx + 4, 474), hook_text, font=font_hook, fill=(0, 0, 0, 240))
     draw.text((hx, 470), hook_text, font=font_hook, fill=(*C_GOLD_LIGHT, 255))
 
-    # Línea decorativa dorada abajo
     for xi in range(180, w - 180):
         t = (xi - 180) / (w - 360)
         intensity = 1 - abs(t * 2 - 1)
         ga = int(200 * intensity)
         draw.point((xi, 590), fill=(*C_GOLD, ga))
 
-    # ── Subtexto: "[CARTA] tiene algo para vos" con auto-fit ──────────────────
     sub_text = f"{card} tiene algo para vos"
-    font_sub = _fit_font_to_width(
-        sub_text,
-        max_width=w - 80,
-        initial_size=44,
-        min_size=26,
-    )
+    font_sub = _fit_font_to_width(sub_text, max_width=w - 80, initial_size=44, min_size=26)
     bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
     sx = (w - (bbox[2] - bbox[0])) // 2
     draw.text((sx + 2, 642), sub_text, font=font_sub, fill=(0, 0, 0, 230))
     draw.text((sx, 640), sub_text, font=font_sub, fill=(*C_TEXT, 250))
 
-    # ── Hint: "Mirá hasta el final" ──────────────────────────────────────────
     font_small = None
     for p in _BOLD_FONT_PATHS:
         try:
@@ -452,7 +470,6 @@ def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
     hx2 = (w - (bbox[2] - bbox[0])) // 2
     draw.text((hx2, 760), hint_text, font=font_small, fill=(*C_MUTED, 240))
 
-    # Flechas abajo (3 triángulos apuntando abajo)
     cx = w // 2
     for i, y0 in enumerate([810, 835, 860]):
         alpha = 200 - i * 40
@@ -659,7 +676,12 @@ def _make_pricing_overlay() -> np.ndarray:
     return np.array(img)
 
 
-def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type="none"):
+# ─── FASE 3: compose_video acepta paleta_tint ────────────────────────────────
+def compose_video(bg_video_path, audio_path, signo, card, output_path,
+                  cta_type="none", paleta_tint=None):
+    if paleta_tint is None:
+        paleta_tint = random.choice(PALETAS_TINT)
+
     audio = AudioFileClip(audio_path)
     total_duration = audio.duration + 1.0
 
@@ -684,13 +706,13 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type=
         .set_duration(total_duration)
     )
 
-    purple_tint = (
-        ColorClip(size=(VIDEO_W, VIDEO_H), color=list(C_PURPLE))
-        .set_opacity(0.18)
+    # Tinte variable según paleta
+    tint_clip = (
+        ColorClip(size=(VIDEO_W, VIDEO_H), color=list(paleta_tint["color"]))
+        .set_opacity(paleta_tint["opacity"])
         .set_duration(total_duration)
     )
 
-    # Hook overlay de 0 a 2s
     hook_clip = (
         ImageClip(_make_hook_overlay(signo, card))
         .set_start(0.0)
@@ -699,7 +721,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type=
         .crossfadeout(0.4)
     )
 
-    # Title overlay de 2s en adelante
     title_clip = (
         ImageClip(_make_title_overlay(signo, card))
         .set_start(2.0)
@@ -727,7 +748,7 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type=
         .crossfadein(1.0)
     )
 
-    final_clips = [bg, dark, purple_tint, hook_clip, title_clip, mid_clip, cta_clip]
+    final_clips = [bg, dark, tint_clip, hook_clip, title_clip, mid_clip, cta_clip]
 
     if cta_type == "paid":
         pricing_clip = (
@@ -785,7 +806,10 @@ def generate(signo_idx: int, cta_type: str = "none", prev_scripts: list = None) 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     slug  = f"{signo['nombre'].lower()}_{stamp}"
 
-    print(f"\n{signo['emoji']}  {signo['nombre']} — {card}")
+    # Elegir paleta para este video
+    paleta = random.choice(PALETAS_TINT)
+
+    print(f"\n{signo['emoji']}  {signo['nombre']} — {card} [paleta: {paleta['nombre']}]")
     print("─" * 48)
 
     print("📝  Generando guión...")
@@ -794,7 +818,7 @@ def generate(signo_idx: int, cta_type: str = "none", prev_scripts: list = None) 
     if prev_scripts:
         intentos = 0
         while _is_too_similar(reading["script"], prev_scripts) and intentos < 1:
-            print(f"   ⚠️  Guión similar a otros del grupo, reintentando ({intentos+1}/1)...")
+            print(f"   ⚠️  Guión similar, reintentando ({intentos+1}/1)...")
             time.sleep(6)
             reading = generate_reading(signo, card)
             intentos += 1
@@ -812,8 +836,8 @@ def generate(signo_idx: int, cta_type: str = "none", prev_scripts: list = None) 
         raise RuntimeError(f"No se pudo descargar fondo para {signo['nombre']}")
 
     output_path = str(OUTPUT_DIR / f"{slug}.mp4")
-    print(f"🎞️   Componiendo video con CTA tipo: {cta_type}")
-    compose_video(bg_path, audio_path, signo, card, output_path, cta_type)
+    print(f"🎞️   Componiendo video con CTA: {cta_type}")
+    compose_video(bg_path, audio_path, signo, card, output_path, cta_type, paleta)
 
     print(f"✅  {signo['nombre']} listo: {output_path}")
 
@@ -827,4 +851,5 @@ def generate(signo_idx: int, cta_type: str = "none", prev_scripts: list = None) 
         "card":       card,
         "duration_s": duration,
         "cta_type":   cta_type,
+        "paleta":     paleta["nombre"],
     }

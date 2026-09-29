@@ -16,13 +16,14 @@ on:
         type: boolean
         default: false
       force_day:
-        description: "Forzar día: wed (grupos 0+1) / sun (grupos 2+3) / both — vacío = automático"
+        description: "Forzar día: wed (0+1) / fri (2+3) / sun (0+1) / all — vacío = automático"
         type: choice
         options:
           - ""
           - "wed"
+          - "fri"
           - "sun"
-          - "both"
+          - "all"
         default: ""
       force_cta:
         description: "Forzar CTA: none, free, paid — vacío = automático"
@@ -50,16 +51,16 @@ jobs:
         include:
           - group: 0
             nombres: "Aries - Tauro - Géminis"
-            dia: wed
+            dias: "3,7"       # miércoles (3) y domingo (7)
           - group: 1
             nombres: "Cáncer - Leo - Virgo"
-            dia: wed
+            dias: "3,7"
           - group: 2
             nombres: "Libra - Escorpio - Sagitario"
-            dia: sun
+            dias: "5"         # viernes (5)
           - group: 3
             nombres: "Capricornio - Acuario - Piscis"
-            dia: sun
+            dias: "5"
 
     steps:
       - uses: actions/checkout@v4
@@ -73,49 +74,30 @@ jobs:
         id: check
         run: |
           set -euo pipefail
-          # Día de la semana en UTC: 1=lunes, 2=martes, 3=miércoles,
-          # 4=jueves, 5=viernes, 6=sábado, 7=domingo
-          DOW=$(date -u +%u)
+          DOW=$(date -u +%u)              # 1=lunes ... 7=domingo
+          DIAS="${{ matrix.dias }}"
           FORCE="${{ github.event.inputs.force_day }}"
-          DIA_GRUPO="${{ matrix.dia }}"
-
-          # Mapear DOW a "wed" (miércoles=3) o "sun" (domingo=7)
-          HOY=""
-          if [ "$DOW" -eq 3 ]; then HOY="wed"; fi
-          if [ "$DOW" -eq 7 ]; then HOY="sun"; fi
+          GRP="${{ matrix.group }}"
 
           RUN="false"
+          MOTIVO=""
 
-          # 1) Forzado manual desde workflow_dispatch
-          if [ "$FORCE" = "both" ]; then
-            RUN="true"
-            echo "→ Forzado: both (correr todo)"
-          elif [ -n "$FORCE" ] && [ "$FORCE" = "$DIA_GRUPO" ]; then
-            RUN="true"
-            echo "→ Forzado: $FORCE = $DIA_GRUPO"
-          # 2) Modo automático: solo miércoles o domingo
-          elif [ -z "$FORCE" ]; then
-            if [ -z "$HOY" ]; then
-              RUN="false"
-              echo "→ Hoy DOW=$DOW no es miércoles ni domingo → SALTAR"
-            elif [ "$HOY" = "$DIA_GRUPO" ]; then
-              RUN="true"
-              echo "→ Hoy es $HOY y el grupo es $DIA_GRUPO → CORRER"
-            else
-              RUN="false"
-              echo "→ Hoy es $HOY pero el grupo es $DIA_GRUPO → SALTAR"
-            fi
+          if [ "$FORCE" = "all" ]; then
+            RUN="true"; MOTIVO="forzado all"
+          elif [ "$FORCE" = "wed" ] && { [ "$GRP" = "0" ] || [ "$GRP" = "1" ]; }; then
+            RUN="true"; MOTIVO="forzado wed"
+          elif [ "$FORCE" = "sun" ] && { [ "$GRP" = "0" ] || [ "$GRP" = "1" ]; }; then
+            RUN="true"; MOTIVO="forzado sun"
+          elif [ "$FORCE" = "fri" ] && { [ "$GRP" = "2" ] || [ "$GRP" = "3" ]; }; then
+            RUN="true"; MOTIVO="forzado fri"
+          elif [ -z "$FORCE" ] && [[ ",$DIAS," == *",$DOW,"* ]]; then
+            RUN="true"; MOTIVO="hoy DOW=$DOW está en [$DIAS]"
+          else
+            MOTIVO="hoy DOW=$DOW no está en [$DIAS]"
           fi
 
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
-          echo ""
-          echo "═══ Resumen decisión ═══"
-          echo "DOW (UTC):  $DOW"
-          echo "HOY:        ${HOY:-<ninguno>}"
-          echo "Grupo día:  $DIA_GRUPO"
-          echo "Forzado:    ${FORCE:-<no>}"
-          echo "DECISIÓN:   run=$RUN"
-          echo "════════════════════════"
+          echo "DOW=$DOW dias='$DIAS' force='$FORCE' grupo=$GRP → $RUN ($MOTIVO)"
 
       - name: Sistema (ffmpeg + fuentes)
         if: steps.check.outputs.run == 'true'
@@ -140,14 +122,11 @@ jobs:
           printf '%s' "$YOUTUBE_CLIENT_SECRETS" > client_secrets.json
           printf '%s' "$YOUTUBE_TOKEN_JSON"     > token.json
           printf '%s' "$GOOGLE_TTS_CREDENTIALS" > tts_credentials.json
-
           {
             echo "GROQ_API_KEY=$GROQ_API_KEY"
             echo "PEXELS_API_KEY=$PEXELS_API_KEY"
             echo "GOOGLE_APPLICATION_CREDENTIALS=tts_credentials.json"
           } > .env
-
-          echo "── .env generado ──"
           sed 's/=.*/=<oculto>/' .env
 
       - name: Elegir CTA
@@ -157,16 +136,16 @@ jobs:
           set -euo pipefail
           CTA="${{ github.event.inputs.force_cta }}"
           if [ -z "$CTA" ]; then
-            # Miércoles = free, Domingo = paid
             DOW=$(date -u +%u)
             case "$DOW" in
-              3) CTA="free" ;;
-              7) CTA="paid" ;;
-              *) CTA="none" ;;
+              3) CTA="free" ;;   # miércoles → free
+              5) CTA="paid" ;;   # viernes → paid
+              7) CTA="paid" ;;   # domingo → paid
+              *) CTA="paid" ;;
             esac
           fi
           echo "cta=$CTA" >> "$GITHUB_OUTPUT"
-          echo "CTA elegido: $CTA"
+          echo "CTA = $CTA"
 
       - name: Generar y publicar
         if: steps.check.outputs.run == 'true'
@@ -185,11 +164,3 @@ jobs:
           name: videos-group-${{ matrix.group }}
           path: output_videos/*.mp4
           retention-days: 7
-
-      - name: Aviso si se salteó por día
-        if: steps.check.outputs.run != 'true'
-        run: |
-          echo "⏭️  Este grupo NO se ejecuta hoy."
-          echo "   El grupo '${{ matrix.nombres }}' solo corre los días: ${{ matrix.dia }}"
-          echo "   Hoy es DOW=$(date -u +%u) (UTC)"
-          echo "   Próxima ejecución programada: según calendario."
