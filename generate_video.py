@@ -1,6 +1,6 @@
 """
 generate_video.py
-v3.0 — Originalidad mejorada + variedad visual + cartas únicas por signo.
+v3.1 — Overlays reposicionados a zona segura de YouTube Shorts.
 """
 
 import PIL.Image as _pil_img
@@ -44,7 +44,7 @@ C_TEAL       = (15, 171, 162)
 C_TEXT       = (253, 248, 240)
 C_MUTED      = (160, 147, 176)
 
-# ─── FASE 3: Paletas de tinte (varían por video) ──────────────────────────────
+# ─── Paletas de tinte (varían por video) ─────────────────────────────────────
 PALETAS_TINT = [
     {"nombre": "purple", "color": (130, 43, 189), "opacity": 0.18},
     {"nombre": "blue",   "color": (15, 40, 100),  "opacity": 0.22},
@@ -53,7 +53,7 @@ PALETAS_TINT = [
     {"nombre": "indigo", "color": (50, 30, 120),  "opacity": 0.22},
 ]
 
-# ─── FASE 2: Estructuras de guión que rotan ───────────────────────────────────
+# ─── Estructuras de guión que rotan ──────────────────────────────────────────
 SCRIPT_STRUCTURES = [
     "PREGUNTA_DIRECTA",
     "ESCENA_SENSORIAL",
@@ -62,7 +62,7 @@ SCRIPT_STRUCTURES = [
     "CONTRASTE",
 ]
 
-# ─── FASE 2: Hooks de CTA que rotan ───────────────────────────────────────────
+# ─── Hooks de CTA que rotan ──────────────────────────────────────────────────
 CTA_HOOKS = [
     "Si querés una carta como esta cada mañana, te la mando por WhatsApp.",
     "Esto que sentís hoy, mañana puede ser distinto. Te aviso por WhatsApp.",
@@ -71,7 +71,7 @@ CTA_HOOKS = [
     "Cada mañana tengo algo nuevo para decirte. Te lo mando por WhatsApp.",
 ]
 
-# ─── FASE 1: Offsets únicos por signo (garantizan 12 cartas distintas/día) ────
+# ─── Offsets únicos por signo (garantizan 12 cartas distintas/día) ───────────
 SIGN_CARD_OFFSETS = [0, 7, 14, 3, 10, 17, 4, 11, 18, 5, 12, 19]
 
 SIGNOS = [
@@ -131,7 +131,6 @@ CARD_GLYPHS = {
     "La Luna": "🌙", "El Sol": "☀️", "El Juicio": "🎺", "El Mundo": "🌍",
 }
 
-# ─── FASE 3: Más queries por carta (variedad visual) ──────────────────────────
 CARD_PEXELS = {
     "El Loco":               ["adventure path nature", "freedom road", "leap cliff", "sunrise hiking trail", "wanderlust mountains"],
     "El Mago":               ["mystical candle purple", "magic ritual dark", "crystal ball", "alchemy tools", "incense smoke"],
@@ -175,12 +174,7 @@ _BOLD_FONT_PATHS = [
 ]
 
 
-# ─── FASE 1: Cartas únicas por signo ──────────────────────────────────────────
 def get_card_for_sign(signo_idx: int) -> str:
-    """
-    Asigna una carta DISTINTA a cada signo cada día.
-    Los 12 signos siempre reciben 12 cartas diferentes.
-    """
     hoy = datetime.now()
     day_offset = (hoy.year * 31 + hoy.month * 17 + hoy.day) % len(ARCANOS)
     idx = (day_offset + SIGN_CARD_OFFSETS[signo_idx]) % len(ARCANOS)
@@ -247,7 +241,6 @@ def _is_too_similar(new_script: str, prev_scripts: list, umbral: float = 0.55) -
     return False
 
 
-# ─── FASE 2: generate_reading con estructuras variables ──────────────────────
 def generate_reading(signo: dict, card: str) -> dict:
     client = Groq(api_key=os.environ["GROQ_API_KEY"])
     hoy = datetime.now().strftime("%d de %B de %Y")
@@ -370,11 +363,9 @@ def generate_voice(script: str, output_path: str, elemento: str = "Fuego") -> fl
     return duration
 
 
-# ─── FASE 3: Pexels con más intentos y variedad ──────────────────────────────
 def download_pexels_video(card: str, output_path: str) -> bool:
     api_key = os.environ["PEXELS_API_KEY"]
     queries = CARD_PEXELS.get(card, DEFAULT_QUERIES)
-    # barajar y probar varias queries hasta encontrar resultados
     random.shuffle(queries)
     fallbacks = ["dark mystical purple", "night sky stars", "purple abstract background"]
     attempt_queries = queries[:2] + fallbacks
@@ -400,7 +391,6 @@ def download_pexels_video(card: str, output_path: str) -> bool:
     if not videos:
         return False
 
-    # Elegir un video AL AZAR entre los primeros 12 para variar
     video  = random.choice(videos[:12])
     files  = sorted(video.get("video_files", []), key=lambda f: f.get("width", 0))
     chosen = next((f for f in reversed(files) if f.get("width", 9999) <= 1920), files[-1])
@@ -676,7 +666,6 @@ def _make_pricing_overlay() -> np.ndarray:
     return np.array(img)
 
 
-# ─── FASE 3: compose_video acepta paleta_tint ────────────────────────────────
 def compose_video(bg_video_path, audio_path, signo, card, output_path,
                   cta_type="none", paleta_tint=None):
     if paleta_tint is None:
@@ -706,7 +695,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path,
         .set_duration(total_duration)
     )
 
-    # Tinte variable según paleta
     tint_clip = (
         ColorClip(size=(VIDEO_W, VIDEO_H), color=list(paleta_tint["color"]))
         .set_opacity(paleta_tint["opacity"])
@@ -729,42 +717,46 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path,
         .crossfadein(0.4)
     )
 
+    # ── CAMBIO 1: Mid CTA más arriba (0.50 en vez de 0.58) ─────────────────
     mid_start = total_duration * 0.40
     mid_clip = (
         ImageClip(_make_mid_cta_overlay())
         .set_start(mid_start)
         .set_duration(6.0)
-        .set_position(("center", int(VIDEO_H * 0.58)))
+        .set_position(("center", int(VIDEO_H * 0.50)))
         .crossfadein(0.8)
         .crossfadeout(0.8)
     )
 
+    # ── CAMBIO 2: CTA final a zona segura (0.38 en vez de 0.62) ────────────
     cta_start = max(1.0, total_duration - 7)
     cta_clip = (
         ImageClip(_make_cta_overlay())
         .set_start(cta_start)
         .set_duration(total_duration - cta_start)
-        .set_position(("center", int(VIDEO_H * 0.62)))
+        .set_position(("center", int(VIDEO_H * 0.38)))
         .crossfadein(1.0)
     )
 
     final_clips = [bg, dark, tint_clip, hook_clip, title_clip, mid_clip, cta_clip]
 
     if cta_type == "paid":
+        # ── CAMBIO 3: Pricing overlay a 0.30 (arriba del CTA final) ────────
         pricing_clip = (
             ImageClip(_make_pricing_overlay())
             .set_start(max(1.0, total_duration - 5.0))
             .set_duration(5.0)
-            .set_position(("center", "center"))
+            .set_position(("center", int(VIDEO_H * 0.30)))
             .crossfadein(0.8)
         )
         final_clips.append(pricing_clip)
     elif cta_type == "free":
+        # ── CAMBIO 4: Free overlay a 0.42 (en vez de 0.60) ──────────────────
         free_clip = (
             ImageClip(_make_free_overlay())
             .set_start(max(1.0, total_duration - 4.0))
             .set_duration(4.0)
-            .set_position(("center", int(VIDEO_H * 0.60)))
+            .set_position(("center", int(VIDEO_H * 0.42)))
             .crossfadein(0.8)
         )
         final_clips.append(free_clip)
@@ -806,7 +798,6 @@ def generate(signo_idx: int, cta_type: str = "none", prev_scripts: list = None) 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     slug  = f"{signo['nombre'].lower()}_{stamp}"
 
-    # Elegir paleta para este video
     paleta = random.choice(PALETAS_TINT)
 
     print(f"\n{signo['emoji']}  {signo['nombre']} — {card} [paleta: {paleta['nombre']}]")
