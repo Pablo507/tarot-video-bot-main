@@ -1,6 +1,6 @@
 """
 generate_video.py
-v3.1 — Overlays reposicionados a zona segura de YouTube Shorts.
+v3.2 — Hooks visuales rotativos + gancho conversacional + share hook.
 """
 
 import PIL.Image as _pil_img
@@ -44,7 +44,7 @@ C_TEAL       = (15, 171, 162)
 C_TEXT       = (253, 248, 240)
 C_MUTED      = (160, 147, 176)
 
-# ─── Paletas de tinte (varían por video) ─────────────────────────────────────
+# ─── Paletas de tinte ────────────────────────────────────────────────────────
 PALETAS_TINT = [
     {"nombre": "purple", "color": (130, 43, 189), "opacity": 0.18},
     {"nombre": "blue",   "color": (15, 40, 100),  "opacity": 0.22},
@@ -53,7 +53,7 @@ PALETAS_TINT = [
     {"nombre": "indigo", "color": (50, 30, 120),  "opacity": 0.22},
 ]
 
-# ─── Estructuras de guión que rotan ──────────────────────────────────────────
+# ─── Estructuras de guión ────────────────────────────────────────────────────
 SCRIPT_STRUCTURES = [
     "PREGUNTA_DIRECTA",
     "ESCENA_SENSORIAL",
@@ -62,7 +62,7 @@ SCRIPT_STRUCTURES = [
     "CONTRASTE",
 ]
 
-# ─── Hooks de CTA que rotan ──────────────────────────────────────────────────
+# ─── Hooks de CTA ────────────────────────────────────────────────────────────
 CTA_HOOKS = [
     "Si querés una carta como esta cada mañana, te la mando por WhatsApp.",
     "Esto que sentís hoy, mañana puede ser distinto. Te aviso por WhatsApp.",
@@ -71,7 +71,16 @@ CTA_HOOKS = [
     "Cada mañana tengo algo nuevo para decirte. Te lo mando por WhatsApp.",
 ]
 
-# ─── Offsets únicos por signo (garantizan 12 cartas distintas/día) ───────────
+# ─── NUEVO: 5 estilos de hook visual que rotan ──────────────────────────────
+HOOK_STYLES = [
+    "PREGUNTA_SIGNO",   # ¿SOS CAPRICORNIO?
+    "AFIRMACION_URGENTE",  # CAPRICORNIO, PARÁ UN SEGUNDO
+    "PREGUNTA_CARTA",   # ¿QUÉ TE ESPERA HOY?
+    "NOMBRE_CARTA",     # CAPRICORNIO + LA FUERZA
+    "CONTEO",           # EL ARCANO DEL DÍA
+]
+
+# ─── Offsets únicos por signo ────────────────────────────────────────────────
 SIGN_CARD_OFFSETS = [0, 7, 14, 3, 10, 17, 4, 11, 18, 5, 12, 19]
 
 SIGNOS = [
@@ -270,7 +279,9 @@ REGLAS:
 5. Máximo 110 palabras, mínimo 90.
 6. La PRIMERA FRASE debe ser un gancho de máximo 10 palabras que atrape en 2 segundos.
 7. Después del desarrollo, incluí esta frase de transición (palabra por palabra): "{cta_hook}"
-8. Terminá EXACTAMENTE con: "Para recibir tu carta del tarot cada mañana en tu WhatsApp, suscribite en tarotgratis punto online por menos de cinco dólares al mes"
+8. Luego, incluí esta frase EXACTA para invitar a comentar: "Contame en los comentarios si esto te resuena hoy."
+9. Después, incluí esta frase EXACTA para invitar a compartir: "Si conocés a alguien de {signo['nombre']} que necesita leer esto, mandáselo."
+10. Terminá EXACTAMENTE con: "Para recibir tu carta del tarot cada mañana en tu WhatsApp, suscribite en tarotgratis punto online por menos de cinco dólares al mes"
 
 Variación semilla (ignorala en el texto): {seed}
 
@@ -287,7 +298,7 @@ Devolvé SOLO un JSON válido sin markdown:
         messages=[{"role": "user", "content": prompt}],
         temperature=1.10,
         top_p=0.95,
-        max_tokens=600,
+        max_tokens=700,
     )
     raw = resp.choices[0].message.content.strip()
     print("Respuesta cruda de Groq:", raw[:200])
@@ -304,8 +315,9 @@ Devolvé SOLO un JSON válido sin markdown:
             f"Como {signo['elemento'].lower()} que sos, sentís que algo se mueve por dentro. "
             f"El arcano te habla de {tema1} y te invita a mirar de cerca {tema2}. "
             f"No es momento de quedarte quieto: es momento de escuchar esa vocecita que sabe. "
-            f"Si dudás, respirá profundo tres veces y preguntate qué harías si no tuvieras miedo. "
             f"El tarot no predice, ilumina. Y hoy te ilumina justo donde más lo necesitás. "
+            f"Contame en los comentarios si esto te resuena hoy. "
+            f"Si conocés a alguien de {signo['nombre']} que necesita leer esto, mandáselo. "
             "Para recibir tu carta del tarot cada mañana en tu WhatsApp, suscribite en tarotgratis punto online por menos de cinco dólares al mes"
         )
         data = {
@@ -316,7 +328,7 @@ Devolvé SOLO un JSON válido sin markdown:
         }
 
     palabras = len(data.get("script", "").split())
-    if palabras < 80 or palabras > 135:
+    if palabras < 90 or palabras > 150:
         print(f"   ⚠️  Guión con {palabras} palabras fuera de rango, regenerando...")
         return generate_reading(signo, card)
 
@@ -403,52 +415,195 @@ def download_pexels_video(card: str, output_path: str) -> bool:
     return True
 
 
-def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
-    w, h = VIDEO_W, VIDEO_H
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+# ═══════════════════════════════════════════════════════════════════════════
+# NUEVO: 5 estilos de hook visual que rotan
+# ═══════════════════════════════════════════════════════════════════════════
 
+def _hook_bg_gradient(w, h, color_top, color_bottom, alpha_max=230):
+    """Fondo con gradiente vertical."""
     bg = Image.new("RGBA", (w, h))
     for y in range(h):
         t = y / h
-        r = int(C_BG_DEEP[0] * (1 - t) + C_BG_MID[0] * t)
-        g = int(C_BG_DEEP[1] * (1 - t) + C_BG_MID[1] * t)
-        b = int(C_BG_DEEP[2] * (1 - t) + C_BG_MID[2] * t)
+        r = int(color_top[0] * (1 - t) + color_bottom[0] * t)
+        g = int(color_top[1] * (1 - t) + color_bottom[1] * t)
+        b = int(color_top[2] * (1 - t) + color_bottom[2] * t)
         for x in range(w):
-            bg.putpixel((x, y), (r, g, b, 230))
+            bg.putpixel((x, y), (r, g, b, alpha_max))
+    return bg
+
+
+def _gold_decorative_line(draw, w, y, start=140, end_offset=140):
+    """Línea decorativa dorada."""
+    for xi in range(start, w - end_offset):
+        t = (xi - start) / (w - start - end_offset)
+        intensity = 1 - abs(t * 2 - 1)
+        ga = int(220 * intensity)
+        draw.point((xi, y), fill=(*C_GOLD, ga))
+
+
+def _draw_arrows(draw, w, y_start, count=3):
+    """Flechas apuntando abajo."""
+    cx = w // 2
+    for i in range(count):
+        y0 = y_start + i * 25
+        alpha = 200 - i * 40
+        draw.polygon(
+            [(cx - 30, y0), (cx + 30, y0), (cx, y0 + 22)],
+            fill=(*C_GOLD, alpha),
+        )
+
+
+def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
+    """
+    5 estilos de hook visual que rotan aleatoriamente.
+    """
+    w, h = VIDEO_W, VIDEO_H
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    bg = _hook_bg_gradient(w, h, C_BG_DEEP, C_BG_MID)
     img = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
 
-    hook_text = f"¿SOS {signo['nombre'].upper()}?"
-    font_hook = _fit_font_to_width(hook_text, max_width=w - 80, initial_size=72, min_size=40)
+    style = random.choice(HOOK_STYLES)
+    print(f"   🎨 Hook style: {style}")
 
-    for xi in range(140, w - 140):
-        t = (xi - 140) / (w - 280)
-        intensity = 1 - abs(t * 2 - 1)
-        ga = int(220 * intensity)
-        draw.point((xi, 320), fill=(*C_GOLD, ga))
+    if style == "PREGUNTA_SIGNO":
+        # ¿SOS CAPRICORNIO?
+        _gold_decorative_line(draw, w, 320)
+        hook_text = f"¿SOS {signo['nombre'].upper()}?"
+        font_hook = _fit_font_to_width(hook_text, w - 80, 72, 40)
+        bbox = draw.textbbox((0, 0), hook_text, font=font_hook)
+        hx = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((hx + 4, 474), hook_text, font=font_hook, fill=(0, 0, 0, 240))
+        draw.text((hx, 470), hook_text, font=font_hook, fill=(*C_GOLD_LIGHT, 255))
+        _gold_decorative_line(draw, w, 590, start=180, end_offset=180)
 
-    bbox = draw.textbbox((0, 0), hook_text, font=font_hook)
-    hx = (w - (bbox[2] - bbox[0])) // 2
-    draw.text((hx + 4, 474), hook_text, font=font_hook, fill=(0, 0, 0, 240))
-    draw.text((hx, 470), hook_text, font=font_hook, fill=(*C_GOLD_LIGHT, 255))
+        sub_text = f"{card} tiene algo para vos"
+        font_sub = _fit_font_to_width(sub_text, w - 80, 44, 26)
+        bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
+        sx = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((sx + 2, 642), sub_text, font=font_sub, fill=(0, 0, 0, 230))
+        draw.text((sx, 640), sub_text, font=font_sub, fill=(*C_TEXT, 250))
 
-    for xi in range(180, w - 180):
-        t = (xi - 180) / (w - 360)
-        intensity = 1 - abs(t * 2 - 1)
-        ga = int(200 * intensity)
-        draw.point((xi, 590), fill=(*C_GOLD, ga))
+    elif style == "AFIRMACION_URGENTE":
+        # CAPRICORNIO, PARÁ UN SEGUNDO
+        _gold_decorative_line(draw, w, 320)
+        line1 = signo['nombre'].upper() + ","
+        font_line1 = _fit_font_to_width(line1, w - 80, 68, 40)
+        bbox = draw.textbbox((0, 0), line1, font=font_line1)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 4, 424), line1, font=font_line1, fill=(0, 0, 0, 240))
+        draw.text((x, 420), line1, font=font_line1, fill=(*C_GOLD_LIGHT, 255))
 
-    sub_text = f"{card} tiene algo para vos"
-    font_sub = _fit_font_to_width(sub_text, max_width=w - 80, initial_size=44, min_size=26)
-    bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
-    sx = (w - (bbox[2] - bbox[0])) // 2
-    draw.text((sx + 2, 642), sub_text, font=font_sub, fill=(0, 0, 0, 230))
-    draw.text((sx, 640), sub_text, font=font_sub, fill=(*C_TEXT, 250))
+        line2 = "PARÁ UN SEGUNDO"
+        font_line2 = _fit_font_to_width(line2, w - 80, 56, 36)
+        bbox = draw.textbbox((0, 0), line2, font=font_line2)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 3, 524), line2, font=font_line2, fill=(0, 0, 0, 230))
+        draw.text((x, 520), line2, font=font_line2, fill=(*C_TEXT, 250))
 
+        _gold_decorative_line(draw, w, 620, start=180, end_offset=180)
+        sub_text = f"Hoy sale {card} para vos"
+        font_sub = _fit_font_to_width(sub_text, w - 80, 36, 24)
+        bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
+        sx = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((sx, 660), sub_text, font=font_sub, fill=(*C_MUTED, 245))
+
+    elif style == "PREGUNTA_CARTA":
+        # ¿QUÉ TE ESPERA HOY?
+        _gold_decorative_line(draw, w, 320)
+        line1 = "¿QUÉ TE ESPERA"
+        font_line1 = _fit_font_to_width(line1, w - 80, 64, 40)
+        bbox = draw.textbbox((0, 0), line1, font=font_line1)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 4, 424), line1, font=font_line1, fill=(0, 0, 0, 240))
+        draw.text((x, 420), line1, font=font_line1, fill=(*C_GOLD_LIGHT, 255))
+
+        line2 = "HOY?"
+        font_line2 = _fit_font_to_width(line2, w - 80, 64, 40)
+        bbox = draw.textbbox((0, 0), line2, font=font_line2)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 4, 524), line2, font=font_line2, fill=(0, 0, 0, 240))
+        draw.text((x, 520), line2, font=font_line2, fill=(*C_GOLD_LIGHT, 255))
+
+        _gold_decorative_line(draw, w, 620, start=180, end_offset=180)
+        sub_text = f"Tu carta: {card}"
+        font_sub = _fit_font_to_width(sub_text, w - 80, 40, 26)
+        bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
+        sx = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((sx + 2, 660), sub_text, font=font_sub, fill=(0, 0, 0, 230))
+        draw.text((sx, 658), sub_text, font=font_sub, fill=(*C_TEXT, 250))
+
+    elif style == "NOMBRE_CARTA":
+        # CAPRICORNIO
+        # LA FUERZA
+        line1 = signo['nombre'].upper()
+        font_line1 = _fit_font_to_width(line1, w - 80, 68, 40)
+        bbox = draw.textbbox((0, 0), line1, font=font_line1)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 4, 380), line1, font=font_line1, fill=(0, 0, 0, 240))
+        draw.text((x, 376), line1, font=font_line1, fill=(*C_TEXT, 250))
+
+        # Glyph grande de la carta
+        glyph = CARD_GLYPHS.get(card, "✨")
+        font_glyph = None
+        for p in _BOLD_FONT_PATHS:
+            try:
+                font_glyph = ImageFont.truetype(p, 90)
+                break
+            except Exception:
+                continue
+        if font_glyph is None:
+            font_glyph = ImageFont.load_default()
+        bbox = draw.textbbox((0, 0), glyph, font=font_glyph)
+        gx = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((gx, 480), glyph, font=font_glyph, fill=(*C_GOLD, 255))
+
+        _gold_decorative_line(draw, w, 620, start=180, end_offset=180)
+
+        line2 = card.upper()
+        font_line2 = _fit_font_to_width(line2, w - 80, 54, 32)
+        bbox = draw.textbbox((0, 0), line2, font=font_line2)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 3, 664), line2, font=font_line2, fill=(0, 0, 0, 230))
+        draw.text((x, 660), line2, font=font_line2, fill=(*C_GOLD_LIGHT, 255))
+
+    else:  # CONTEO
+        # EL ARCANO DEL DÍA
+        _gold_decorative_line(draw, w, 320)
+        line1 = "EL ARCANO"
+        font_line1 = _fit_font_to_width(line1, w - 80, 56, 36)
+        bbox = draw.textbbox((0, 0), line1, font=font_line1)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 3, 424), line1, font=font_line1, fill=(0, 0, 0, 220))
+        draw.text((x, 420), line1, font=font_line1, fill=(*C_MUTED, 245))
+
+        line2 = "DEL DÍA"
+        font_line2 = _fit_font_to_width(line2, w - 80, 56, 36)
+        bbox = draw.textbbox((0, 0), line2, font=font_line2)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 3, 494), line2, font=font_line2, fill=(0, 0, 0, 220))
+        draw.text((x, 490), line2, font=font_line2, fill=(*C_MUTED, 245))
+
+        _gold_decorative_line(draw, w, 570, start=180, end_offset=180)
+
+        card_upper = card.upper()
+        font_card = _fit_font_to_width(card_upper, w - 80, 62, 36)
+        bbox = draw.textbbox((0, 0), card_upper, font=font_card)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 4, 614), card_upper, font=font_card, fill=(0, 0, 0, 240))
+        draw.text((x, 610), card_upper, font=font_card, fill=(*C_GOLD_LIGHT, 255))
+
+        sub_text = f"Para {signo['nombre']}"
+        font_sub = _fit_font_to_width(sub_text, w - 80, 34, 22)
+        bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
+        sx = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((sx, 710), sub_text, font=font_sub, fill=(*C_TEXT, 235))
+
+    # Hint "Mirá hasta el final" común a todos los estilos
     font_small = None
     for p in _BOLD_FONT_PATHS:
         try:
-            font_small = ImageFont.truetype(p, 32)
+            font_small = ImageFont.truetype(p, 30)
             break
         except Exception:
             continue
@@ -458,15 +613,9 @@ def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
     hint_text = "Mirá hasta el final"
     bbox = draw.textbbox((0, 0), hint_text, font=font_small)
     hx2 = (w - (bbox[2] - bbox[0])) // 2
-    draw.text((hx2, 760), hint_text, font=font_small, fill=(*C_MUTED, 240))
+    draw.text((hx2, 780), hint_text, font=font_small, fill=(*C_MUTED, 240))
 
-    cx = w // 2
-    for i, y0 in enumerate([810, 835, 860]):
-        alpha = 200 - i * 40
-        draw.polygon(
-            [(cx - 30, y0), (cx + 30, y0), (cx, y0 + 22)],
-            fill=(*C_GOLD, alpha),
-        )
+    _draw_arrows(draw, w, 830)
 
     return np.array(img)
 
@@ -701,6 +850,7 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path,
         .set_duration(total_duration)
     )
 
+    # Hook 0-2s con estilo rotativo
     hook_clip = (
         ImageClip(_make_hook_overlay(signo, card))
         .set_start(0.0)
@@ -717,7 +867,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path,
         .crossfadein(0.4)
     )
 
-    # ── CAMBIO 1: Mid CTA más arriba (0.50 en vez de 0.58) ─────────────────
     mid_start = total_duration * 0.40
     mid_clip = (
         ImageClip(_make_mid_cta_overlay())
@@ -728,7 +877,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path,
         .crossfadeout(0.8)
     )
 
-    # ── CAMBIO 2: CTA final a zona segura (0.38 en vez de 0.62) ────────────
     cta_start = max(1.0, total_duration - 7)
     cta_clip = (
         ImageClip(_make_cta_overlay())
@@ -741,7 +889,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path,
     final_clips = [bg, dark, tint_clip, hook_clip, title_clip, mid_clip, cta_clip]
 
     if cta_type == "paid":
-        # ── CAMBIO 3: Pricing overlay a 0.30 (arriba del CTA final) ────────
         pricing_clip = (
             ImageClip(_make_pricing_overlay())
             .set_start(max(1.0, total_duration - 5.0))
@@ -751,7 +898,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path,
         )
         final_clips.append(pricing_clip)
     elif cta_type == "free":
-        # ── CAMBIO 4: Free overlay a 0.42 (en vez de 0.60) ──────────────────
         free_clip = (
             ImageClip(_make_free_overlay())
             .set_start(max(1.0, total_duration - 4.0))
