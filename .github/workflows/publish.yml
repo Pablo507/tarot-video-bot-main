@@ -51,13 +51,13 @@ jobs:
         include:
           - group: 0
             nombres: "Aries - Tauro - Géminis"
-            dias: "3,7"       # miércoles (3) y domingo (7)
+            dias: "3,7"
           - group: 1
             nombres: "Cáncer - Leo - Virgo"
             dias: "3,7"
           - group: 2
             nombres: "Libra - Escorpio - Sagitario"
-            dias: "5"         # viernes (5)
+            dias: "5"
           - group: 3
             nombres: "Capricornio - Acuario - Piscis"
             dias: "5"
@@ -68,13 +68,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
 
       - name: Decidir si este grupo corre hoy
         id: check
         run: |
           set -euo pipefail
-          DOW=$(date -u +%u)              # 1=lunes ... 7=domingo
+          DOW=$(date -u +%u)
           DIAS="${{ matrix.dias }}"
           FORCE="${{ github.event.inputs.force_day }}"
           GRP="${{ matrix.group }}"
@@ -138,9 +137,9 @@ jobs:
           if [ -z "$CTA" ]; then
             DOW=$(date -u +%u)
             case "$DOW" in
-              3) CTA="free" ;;   # miércoles → free
-              5) CTA="paid" ;;   # viernes → paid
-              7) CTA="paid" ;;   # domingo → paid
+              3) CTA="free" ;;
+              5) CTA="paid" ;;
+              7) CTA="paid" ;;
               *) CTA="paid" ;;
             esac
           fi
