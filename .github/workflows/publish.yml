@@ -15,16 +15,15 @@ on:
         description: "Subir como privado"
         type: boolean
         default: false
-      force_day:
-        description: "Forzar día: wed (0+1) / fri (2+3) / sun (0+1) / all — vacío = automático"
+      force_group:
+        description: "Forzar grupos: 0 (Aries-Virgo) / 1 (Libra-Piscis) / both / auto"
         type: choice
         options:
-          - ""
-          - "wed"
-          - "fri"
-          - "sun"
-          - "all"
-        default: ""
+          - "auto"
+          - "0"
+          - "1"
+          - "both"
+        default: "auto"
       force_cta:
         description: "Forzar CTA: none, free, paid — vacío = automático"
         type: choice
@@ -51,16 +50,16 @@ jobs:
         include:
           - group: 0
             nombres: "Aries - Tauro - Géminis"
-            dias: "3,7"
+            mitad: "A"
           - group: 1
             nombres: "Cáncer - Leo - Virgo"
-            dias: "3,7"
+            mitad: "A"
           - group: 2
             nombres: "Libra - Escorpio - Sagitario"
-            dias: "5"
+            mitad: "B"
           - group: 3
             nombres: "Capricornio - Acuario - Piscis"
-            dias: "5"
+            mitad: "B"
 
     steps:
       - uses: actions/checkout@v4
@@ -73,30 +72,32 @@ jobs:
         id: check
         run: |
           set -euo pipefail
-          DOW=$(date -u +%u)
-          DIAS="${{ matrix.dias }}"
-          FORCE="${{ github.event.inputs.force_day }}"
-          GRP="${{ matrix.group }}"
+          DAY=$(date -u +%-d)
+          MOD=$((DAY % 2))
+          FORCE="${{ github.event.inputs.force_group }}"
+          MITAD="${{ matrix.mitad }}"
 
           RUN="false"
           MOTIVO=""
 
-          if [ "$FORCE" = "all" ]; then
-            RUN="true"; MOTIVO="forzado all"
-          elif [ "$FORCE" = "wed" ] && { [ "$GRP" = "0" ] || [ "$GRP" = "1" ]; }; then
-            RUN="true"; MOTIVO="forzado wed"
-          elif [ "$FORCE" = "sun" ] && { [ "$GRP" = "0" ] || [ "$GRP" = "1" ]; }; then
-            RUN="true"; MOTIVO="forzado sun"
-          elif [ "$FORCE" = "fri" ] && { [ "$GRP" = "2" ] || [ "$GRP" = "3" ]; }; then
-            RUN="true"; MOTIVO="forzado fri"
-          elif [ -z "$FORCE" ] && [[ ",$DIAS," == *",$DOW,"* ]]; then
-            RUN="true"; MOTIVO="hoy DOW=$DOW está en [$DIAS]"
-          else
-            MOTIVO="hoy DOW=$DOW no está en [$DIAS]"
+          if [ "$FORCE" = "both" ]; then
+            RUN="true"; MOTIVO="forzado both"
+          elif [ "$FORCE" = "0" ] && [ "$MITAD" = "A" ]; then
+            RUN="true"; MOTIVO="forzado grupo A"
+          elif [ "$FORCE" = "1" ] && [ "$MITAD" = "B" ]; then
+            RUN="true"; MOTIVO="forzado grupo B"
+          elif [ "$FORCE" = "auto" ] || [ -z "$FORCE" ]; then
+            # Días pares → mitad A (grupos 0+1), Días impares → mitad B (grupos 2+3)
+            if { [ "$MITAD" = "A" ] && [ "$MOD" -eq 0 ]; } || \
+               { [ "$MITAD" = "B" ] && [ "$MOD" -eq 1 ]; }; then
+              RUN="true"; MOTIVO="día $DAY MOD=$MOD → mitad $MITAD"
+            else
+              MOTIVO="día $DAY MOD=$MOD no corresponde a mitad $MITAD"
+            fi
           fi
 
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
-          echo "DOW=$DOW dias='$DIAS' force='$FORCE' grupo=$GRP → $RUN ($MOTIVO)"
+          echo "DAY=$DAY MOD=$MOD mitad=$MITAD force='$FORCE' → $RUN ($MOTIVO)"
 
       - name: Sistema (ffmpeg + fuentes)
         if: steps.check.outputs.run == 'true'
@@ -135,11 +136,10 @@ jobs:
           set -euo pipefail
           CTA="${{ github.event.inputs.force_cta }}"
           if [ -z "$CTA" ]; then
+            # Alternancia: lunes/mié/vie → free (lead magnet), martes/jue/sáb/dom → paid
             DOW=$(date -u +%u)
             case "$DOW" in
-              3) CTA="free" ;;
-              5) CTA="paid" ;;
-              7) CTA="paid" ;;
+              1|3|5) CTA="free" ;;
               *) CTA="paid" ;;
             esac
           fi
