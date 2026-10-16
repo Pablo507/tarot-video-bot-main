@@ -1,6 +1,6 @@
 """
 generate_video.py
-v4.0 — Adaptado a audiencia 45-64 años, Latinoamérica, hooks específicos.
+v4.1 — Hooks provocadores para generar shares.
 """
 
 import PIL.Image as _pil_img
@@ -43,8 +43,8 @@ C_PURPLE_L   = (182, 109, 248)
 C_TEAL       = (15, 171, 162)
 C_TEXT       = (253, 248, 240)
 C_MUTED      = (160, 147, 176)
+C_RED_ALERT  = (220, 60, 60)
 
-# ─── Paletas de tinte ────────────────────────────────────────────────────────
 PALETAS_TINT = [
     {"nombre": "purple", "color": (130, 43, 189), "opacity": 0.18},
     {"nombre": "blue",   "color": (15, 40, 100),  "opacity": 0.22},
@@ -53,7 +53,6 @@ PALETAS_TINT = [
     {"nombre": "indigo", "color": (50, 30, 120),  "opacity": 0.22},
 ]
 
-# ─── Estructuras de guión ────────────────────────────────────────────────────
 SCRIPT_STRUCTURES = [
     "PREGUNTA_DIRECTA",
     "ESCENA_SENSORIAL",
@@ -62,7 +61,6 @@ SCRIPT_STRUCTURES = [
     "CONTRASTE",
 ]
 
-# ─── NUEVO: CTAs específicos según objetivo ──────────────────────────────────
 CTA_COMMENTS = [
     "Contame: ¿amor, trabajo o familia? Votá en comentarios.",
     "¿Te pasó algo así esta semana? Te leo abajo.",
@@ -87,17 +85,15 @@ CTA_HOOKS = [
     "Cada mañana tengo algo nuevo para decirte. Te lo mando por WhatsApp.",
 ]
 
-# ─── NUEVO: Hooks visuales adaptados a audiencia 45+ ─────────────────────────
-# Estructura: (emoji/etiqueta grande, texto secundario)
+# ─── NUEVOS HOOKS PROVOCADORES ────────────────────────────────────────────────
 HOOK_STYLES = [
-    "PREGUNTA_SIGNO",      # GÉMINIS, ¿ESTÁS LISTO?
-    "AFIRMACION_URGENTE",  # GÉMINIS, ESCUCHAME
-    "PREGUNTA_CARTA",      # ¿QUÉ TE ESPERA HOY?
-    "NOMBRE_CARTA",        # GÉMINIS + LA FUERZA
-    "CONTEO",              # EL ARCANO DEL DÍA
+    "PREGUNTA_INCOMODA",    # ¿POR QUÉ TE SENTÍS ASÍ?
+    "AFIRMACION_BRUTAL",    # GÉMINIS, ESTO NO ES CASUALIDAD
+    "PROHIBICION",          # GÉMINIS, DEJÁ DE HACER ESTO HOY
+    "VERDAD_DURA",          # GÉMINIS, ESTO TE VA A DOLER
+    "ADVERTENCIA",          # CUIDADO, GÉMINIS
 ]
 
-# ─── Offsets únicos por signo ────────────────────────────────────────────────
 SIGN_CARD_OFFSETS = [0, 7, 14, 3, 10, 17, 4, 11, 18, 5, 12, 19]
 
 SIGNOS = [
@@ -437,7 +433,7 @@ def download_pexels_video(card: str, output_path: str) -> bool:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# HOOKS VISUALES adaptados a audiencia 45+ (más directos, menos juego visual)
+# HOOKS PROVOCADORES v4.1
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _hook_bg_gradient(w, h, color_top, color_bottom, alpha_max=230):
@@ -452,12 +448,14 @@ def _hook_bg_gradient(w, h, color_top, color_bottom, alpha_max=230):
     return bg
 
 
-def _gold_decorative_line(draw, w, y, start=140, end_offset=140):
+def _gold_decorative_line(draw, w, y, start=140, end_offset=140, color=None):
+    if color is None:
+        color = C_GOLD
     for xi in range(start, w - end_offset):
         t = (xi - start) / (w - start - end_offset)
         intensity = 1 - abs(t * 2 - 1)
         ga = int(220 * intensity)
-        draw.point((xi, y), fill=(*C_GOLD, ga))
+        draw.point((xi, y), fill=(*color, ga))
 
 
 def _draw_arrows(draw, w, y_start, count=3):
@@ -481,138 +479,150 @@ def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
     style = random.choice(HOOK_STYLES)
     print(f"   🎨 Hook style: {style}")
 
-    if style == "PREGUNTA_SIGNO":
-        _gold_decorative_line(draw, w, 340)
-        line1 = signo['nombre'].upper() + ","
-        font_line1 = _fit_font_to_width(line1, w - 80, 68, 40)
+    if style == "PREGUNTA_INCOMODA":
+        # ¿POR QUÉ TE SENTÍS ASÍ?
+        _gold_decorative_line(draw, w, 300)
+        line1 = "¿POR QUÉ"
+        font_line1 = _fit_font_to_width(line1, w - 80, 76, 44)
         bbox = draw.textbbox((0, 0), line1, font=font_line1)
         x = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((x + 4, 424), line1, font=font_line1, fill=(0, 0, 0, 240))
-        draw.text((x, 420), line1, font=font_line1, fill=(*C_GOLD_LIGHT, 255))
+        draw.text((x + 4, 394), line1, font=font_line1, fill=(0, 0, 0, 240))
+        draw.text((x, 390), line1, font=font_line1, fill=(*C_GOLD_LIGHT, 255))
 
-        line2 = "¿ESTÁS LISTO?"
-        font_line2 = _fit_font_to_width(line2, w - 80, 58, 36)
+        line2 = "TE SENTÍS ASÍ?"
+        font_line2 = _fit_font_to_width(line2, w - 80, 76, 44)
         bbox = draw.textbbox((0, 0), line2, font=font_line2)
         x = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((x + 3, 524), line2, font=font_line2, fill=(0, 0, 0, 230))
-        draw.text((x, 520), line2, font=font_line2, fill=(*C_TEXT, 250))
+        draw.text((x + 4, 494), line2, font=font_line2, fill=(0, 0, 0, 240))
+        draw.text((x, 490), line2, font=font_line2, fill=(*C_GOLD_LIGHT, 255))
 
-        _gold_decorative_line(draw, w, 620, start=180, end_offset=180)
-        sub_text = f"Hoy sale {card} para vos"
-        font_sub = _fit_font_to_width(sub_text, w - 80, 38, 24)
-        bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
-        sx = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((sx, 660), sub_text, font=font_sub, fill=(*C_MUTED, 245))
-
-    elif style == "AFIRMACION_URGENTE":
-        _gold_decorative_line(draw, w, 320)
-        line1 = signo['nombre'].upper() + ","
-        font_line1 = _fit_font_to_width(line1, w - 80, 68, 40)
-        bbox = draw.textbbox((0, 0), line1, font=font_line1)
-        x = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((x + 4, 424), line1, font=font_line1, fill=(0, 0, 0, 240))
-        draw.text((x, 420), line1, font=font_line1, fill=(*C_GOLD_LIGHT, 255))
-
-        line2 = "ESCUCHAME"
-        font_line2 = _fit_font_to_width(line2, w - 80, 58, 36)
-        bbox = draw.textbbox((0, 0), line2, font=font_line2)
-        x = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((x + 3, 524), line2, font=font_line2, fill=(0, 0, 0, 230))
-        draw.text((x, 520), line2, font=font_line2, fill=(*C_TEXT, 250))
-
-        _gold_decorative_line(draw, w, 620, start=180, end_offset=180)
-        sub_text = f"{card} tiene algo para decirte"
-        font_sub = _fit_font_to_width(sub_text, w - 80, 34, 22)
-        bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
-        sx = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((sx, 660), sub_text, font=font_sub, fill=(*C_MUTED, 245))
-
-    elif style == "PREGUNTA_CARTA":
-        _gold_decorative_line(draw, w, 320)
-        line1 = "¿QUÉ TE ESPERA"
-        font_line1 = _fit_font_to_width(line1, w - 80, 60, 38)
-        bbox = draw.textbbox((0, 0), line1, font=font_line1)
-        x = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((x + 4, 424), line1, font=font_line1, fill=(0, 0, 0, 240))
-        draw.text((x, 420), line1, font=font_line1, fill=(*C_GOLD_LIGHT, 255))
-
-        line2 = "HOY?"
-        font_line2 = _fit_font_to_width(line2, w - 80, 60, 38)
-        bbox = draw.textbbox((0, 0), line2, font=font_line2)
-        x = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((x + 4, 524), line2, font=font_line2, fill=(0, 0, 0, 240))
-        draw.text((x, 520), line2, font=font_line2, fill=(*C_GOLD_LIGHT, 255))
-
-        _gold_decorative_line(draw, w, 620, start=180, end_offset=180)
-        sub_text = f"Tu carta: {card}"
+        _gold_decorative_line(draw, w, 610, start=180, end_offset=180)
+        sub_text = f"{signo['nombre']}, hay una razón"
         font_sub = _fit_font_to_width(sub_text, w - 80, 42, 26)
         bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
         sx = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((sx + 2, 660), sub_text, font=font_sub, fill=(0, 0, 0, 230))
-        draw.text((sx, 658), sub_text, font=font_sub, fill=(*C_TEXT, 250))
+        draw.text((sx + 2, 654), sub_text, font=font_sub, fill=(0, 0, 0, 230))
+        draw.text((sx, 652), sub_text, font=font_sub, fill=(*C_TEXT, 250))
 
-    elif style == "NOMBRE_CARTA":
-        line1 = signo['nombre'].upper()
+    elif style == "AFIRMACION_BRUTAL":
+        # GÉMINIS, ESTO NO ES CASUALIDAD
+        _gold_decorative_line(draw, w, 300)
+        line1 = signo['nombre'].upper() + ","
         font_line1 = _fit_font_to_width(line1, w - 80, 68, 40)
         bbox = draw.textbbox((0, 0), line1, font=font_line1)
         x = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((x + 4, 400), line1, font=font_line1, fill=(0, 0, 0, 240))
-        draw.text((x, 396), line1, font=font_line1, fill=(*C_TEXT, 250))
+        draw.text((x + 4, 404), line1, font=font_line1, fill=(0, 0, 0, 240))
+        draw.text((x, 400), line1, font=font_line1, fill=(*C_GOLD_LIGHT, 255))
 
-        glyph = CARD_GLYPHS.get(card, "✨")
-        font_glyph = None
-        for p in _BOLD_FONT_PATHS:
-            try:
-                font_glyph = ImageFont.truetype(p, 90)
-                break
-            except Exception:
-                continue
-        if font_glyph is None:
-            font_glyph = ImageFont.load_default()
-        bbox = draw.textbbox((0, 0), glyph, font=font_glyph)
-        gx = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((gx, 500), glyph, font=font_glyph, fill=(*C_GOLD, 255))
-
-        _gold_decorative_line(draw, w, 640, start=180, end_offset=180)
-
-        line2 = card.upper()
-        font_line2 = _fit_font_to_width(line2, w - 80, 54, 32)
+        line2 = "ESTO NO ES"
+        font_line2 = _fit_font_to_width(line2, w - 80, 62, 38)
         bbox = draw.textbbox((0, 0), line2, font=font_line2)
         x = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((x + 3, 684), line2, font=font_line2, fill=(0, 0, 0, 230))
-        draw.text((x, 680), line2, font=font_line2, fill=(*C_GOLD_LIGHT, 255))
+        draw.text((x + 3, 494), line2, font=font_line2, fill=(0, 0, 0, 230))
+        draw.text((x, 490), line2, font=font_line2, fill=(*C_TEXT, 250))
 
-    else:  # CONTEO
-        _gold_decorative_line(draw, w, 340)
-        line1 = "EL ARCANO"
-        font_line1 = _fit_font_to_width(line1, w - 80, 56, 36)
+        line3 = "CASUALIDAD"
+        font_line3 = _fit_font_to_width(line3, w - 80, 62, 38)
+        bbox = draw.textbbox((0, 0), line3, font=font_line3)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 3, 574), line3, font=font_line3, fill=(0, 0, 0, 230))
+        draw.text((x, 570), line3, font=font_line3, fill=(*C_TEXT, 250))
+
+        _gold_decorative_line(draw, w, 660, start=180, end_offset=180)
+        sub_text = f"{card} tiene algo que decirte"
+        font_sub = _fit_font_to_width(sub_text, w - 80, 34, 22)
+        bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
+        sx = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((sx, 700), sub_text, font=font_sub, fill=(*C_MUTED, 245))
+
+    elif style == "PROHIBICION":
+        # GÉMINIS, DEJÁ DE HACER ESTO HOY
+        _gold_decorative_line(draw, w, 300)
+        line1 = signo['nombre'].upper() + ","
+        font_line1 = _fit_font_to_width(line1, w - 80, 68, 40)
         bbox = draw.textbbox((0, 0), line1, font=font_line1)
         x = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((x + 3, 444), line1, font=font_line1, fill=(0, 0, 0, 220))
-        draw.text((x, 440), line1, font=font_line1, fill=(*C_MUTED, 245))
+        draw.text((x + 4, 394), line1, font=font_line1, fill=(0, 0, 0, 240))
+        draw.text((x, 390), line1, font=font_line1, fill=(*C_GOLD_LIGHT, 255))
 
-        line2 = "DEL DÍA"
-        font_line2 = _fit_font_to_width(line2, w - 80, 56, 36)
+        line2 = "DEJÁ DE"
+        font_line2 = _fit_font_to_width(line2, w - 80, 64, 40)
         bbox = draw.textbbox((0, 0), line2, font=font_line2)
         x = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((x + 3, 514), line2, font=font_line2, fill=(0, 0, 0, 220))
-        draw.text((x, 510), line2, font=font_line2, fill=(*C_MUTED, 245))
+        draw.text((x + 4, 484), line2, font=font_line2, fill=(0, 0, 0, 240))
+        draw.text((x, 480), line2, font=font_line2, fill=(*C_RED_ALERT, 255))
 
-        _gold_decorative_line(draw, w, 590, start=180, end_offset=180)
-
-        card_upper = card.upper()
-        font_card = _fit_font_to_width(card_upper, w - 80, 62, 36)
-        bbox = draw.textbbox((0, 0), card_upper, font=font_card)
+        line3 = "HACER ESTO HOY"
+        font_line3 = _fit_font_to_width(line3, w - 80, 56, 34)
+        bbox = draw.textbbox((0, 0), line3, font=font_line3)
         x = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((x + 4, 634), card_upper, font=font_card, fill=(0, 0, 0, 240))
-        draw.text((x, 630), card_upper, font=font_card, fill=(*C_GOLD_LIGHT, 255))
+        draw.text((x + 3, 574), line3, font=font_line3, fill=(0, 0, 0, 230))
+        draw.text((x, 570), line3, font=font_line3, fill=(*C_RED_ALERT, 255))
 
-        sub_text = f"Para {signo['nombre']}"
+        _gold_decorative_line(draw, w, 660, start=180, end_offset=180)
+        sub_text = f"{card} te lo advierte"
         font_sub = _fit_font_to_width(sub_text, w - 80, 36, 24)
         bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
         sx = (w - (bbox[2] - bbox[0])) // 2
-        draw.text((sx, 730), sub_text, font=font_sub, fill=(*C_TEXT, 235))
+        draw.text((sx, 700), sub_text, font=font_sub, fill=(*C_MUTED, 245))
 
+    elif style == "VERDAD_DURA":
+        # GÉMINIS, ESTO TE VA A DOLER
+        _gold_decorative_line(draw, w, 300)
+        line1 = signo['nombre'].upper() + ","
+        font_line1 = _fit_font_to_width(line1, w - 80, 68, 40)
+        bbox = draw.textbbox((0, 0), line1, font=font_line1)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 4, 394), line1, font=font_line1, fill=(0, 0, 0, 240))
+        draw.text((x, 390), line1, font=font_line1, fill=(*C_GOLD_LIGHT, 255))
+
+        line2 = "ESTO TE VA"
+        font_line2 = _fit_font_to_width(line2, w - 80, 62, 38)
+        bbox = draw.textbbox((0, 0), line2, font=font_line2)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 3, 484), line2, font=font_line2, fill=(0, 0, 0, 230))
+        draw.text((x, 480), line2, font=font_line2, fill=(*C_TEXT, 250))
+
+        line3 = "A DOLER"
+        font_line3 = _fit_font_to_width(line3, w - 80, 62, 38)
+        bbox = draw.textbbox((0, 0), line3, font=font_line3)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 3, 564), line3, font=font_line3, fill=(0, 0, 0, 230))
+        draw.text((x, 560), line3, font=font_line3, fill=(*C_TEXT, 250))
+
+        _gold_decorative_line(draw, w, 660, start=180, end_offset=180)
+        sub_text = "Pero necesitás escucharlo"
+        font_sub = _fit_font_to_width(sub_text, w - 80, 34, 22)
+        bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
+        sx = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((sx, 700), sub_text, font=font_sub, fill=(*C_MUTED, 245))
+
+    else:  # ADVERTENCIA
+        # CUIDADO, GÉMINIS
+        _gold_decorative_line(draw, w, 300)
+        line1 = "CUIDADO,"
+        font_line1 = _fit_font_to_width(line1, w - 80, 68, 40)
+        bbox = draw.textbbox((0, 0), line1, font=font_line1)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 4, 404), line1, font=font_line1, fill=(0, 0, 0, 240))
+        draw.text((x, 400), line1, font=font_line1, fill=(*C_RED_ALERT, 255))
+
+        line2 = signo['nombre'].upper()
+        font_line2 = _fit_font_to_width(line2, w - 80, 78, 44)
+        bbox = draw.textbbox((0, 0), line2, font=font_line2)
+        x = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((x + 4, 494), line2, font=font_line2, fill=(0, 0, 0, 240))
+        draw.text((x, 490), line2, font=font_line2, fill=(*C_RED_ALERT, 255))
+
+        _gold_decorative_line(draw, w, 610, start=180, end_offset=180)
+        sub_text = "Algo se está moviendo hoy"
+        font_sub = _fit_font_to_width(sub_text, w - 80, 40, 26)
+        bbox = draw.textbbox((0, 0), sub_text, font=font_sub)
+        sx = (w - (bbox[2] - bbox[0])) // 2
+        draw.text((sx + 2, 654), sub_text, font=font_sub, fill=(0, 0, 0, 230))
+        draw.text((sx, 652), sub_text, font=font_sub, fill=(*C_TEXT, 250))
+
+    # Hint "Mirá hasta el final"
     font_small = None
     for p in _BOLD_FONT_PATHS:
         try:
