@@ -1,6 +1,6 @@
 """
 generate_video.py
-v5.2 — Contenido profundo (IA solo escribe la lectura), CTAs automáticos por código y Carta Visual.
+v5.3 — Sin emojis (compatibilidad total), sello visual geométrico, contenido separado de CTAs.
 """
 
 import PIL.Image as _pil_img
@@ -60,7 +60,6 @@ PALETAS_TINT = [
     {"nombre": "indigo", "color": (50, 30, 120),  "opacity": 0.22},
 ]
 
-# Significados de las cartas para que la IA no invente cualquier cosa
 TAROT_MEANINGS = {
     "El Loco": "nuevos comienzos, dar un salto de fe, libertad, espontaneidad",
     "El Mago": "poder personal, manifestación, habilidades, acción",
@@ -87,7 +86,6 @@ TAROT_MEANINGS = {
 }
 
 SCRIPT_STRUCTURES = ["PREGUNTA_DIRECTA", "ESCENA_SENSORIAL", "AFIRMACION_FUERTE", "NOMBRE_DIRECTO", "CONTRASTE"]
-# CTAs fijos que se agregan por código al final
 CTA_COMMENT = "Contame en los comentarios si esto te resuena hoy."
 CTA_SAVE = "Guardá este video en favoritos para volver a verlo cuando lo necesites."
 CTA_HOOK = "Si querés una carta así cada mañana, te la mando por WhatsApp."
@@ -113,7 +111,6 @@ SIGNOS = [
 ]
 
 ARCANOS = ["El Loco", "El Mago", "La Sacerdotisa", "La Emperatriz", "El Emperador", "El Hierofante", "Los Enamorados", "El Carro", "La Fuerza", "El Ermitaño", "La Rueda de la Fortuna", "La Justicia", "El Colgado", "La Muerte", "La Templanza", "El Diablo", "La Torre", "La Estrella", "La Luna", "El Sol", "El Juicio", "El Mundo"]
-CARD_GLYPHS = {"El Loco": "🎭", "El Mago": "⚡", "La Sacerdotisa": "🌙", "La Emperatriz": "🌿", "El Emperador": "👑", "El Hierofante": "🕊️", "Los Enamorados": "💫", "El Carro": "⚔️", "La Fuerza": "🦁", "El Ermitaño": "🕯️", "La Rueda de la Fortuna": "☸️", "La Justicia": "⚖️", "El Colgado": "💧", "La Muerte": "🌑", "La Templanza": "✨", "El Diablo": "🔥", "La Torre": "⚡", "La Estrella": "⭐", "La Luna": "🌙", "El Sol": "☀️", "El Juicio": "🎺", "El Mundo": "🌍"}
 CARD_PEXELS = {"El Loco": ["adventure path", "freedom road"], "El Mago": ["candle purple", "magic ritual"], "La Sacerdotisa": ["moon night", "mystery veil"], "La Emperatriz": ["nature abundance", "flowers"], "El Emperador": ["mountain peak", "stone throne"], "El Hierofante": ["ancient temple", "sacred candle"], "Los Enamorados": ["couple sunset", "love romance"], "El Carro": ["road night", "speed motion"], "La Fuerza": ["lion majestic", "powerful animal"], "La Ermitaño": ["lantern dark", "solitude path"], "La Rueda de la Fortuna": ["spinning stars", "cosmic wheel"], "La Justicia": ["scales balance", "symmetry architecture"], "La Colgado": ["water reflection", "hanging tree"], "La Muerte": ["autumn leaves", "transformation dark"], "La Templanza": ["water pour", "balance zen"], "El Diablo": ["dark flames", "smoke dramatic"], "La Torre": ["lightning storm", "tower dark"], "La Estrella": ["night sky stars", "galaxy milky"], "La Luna": ["full moon", "moon reflection"], "El Sol": ["sunrise golden", "sunlight rays"], "La Juicio": ["sunrise dramatic", "awakening light"], "La Mundo": ["earth globe", "universe harmony"]}
 DEFAULT_QUERIES = ["mystical dark purple", "night sky stars", "smoke dark background"]
 VOCES_POR_ELEMENTO = {"Fuego": "es-US-Neural2-A", "Tierra": "es-US-Neural2-A", "Aire": "es-US-Journey-F", "Agua": "es-US-Neural2-A"}
@@ -157,14 +154,10 @@ def _is_too_similar(new_script: str, prev_scripts: list, umbral: float = 0.55) -
         if len(new_set & prev_set) / len(new_set | prev_set) > umbral: return True
     return False
 
-# =====================================================================
-# NUEVA LÓGICA: La IA solo escribe la lectura, el código arma el guión final
-# =====================================================================
 def generate_reading(signo: dict, card: str) -> dict:
     client = Groq(api_key=os.environ["GROQ_API_KEY"])
     hoy = datetime.now().strftime("%d de %B de %Y")
     
-    # Le pasamos a la IA el significado de la carta y los temas del signo
     significado_carta = TAROT_MEANINGS.get(card, "transformación y crecimiento")
     temas = ", ".join(signo["temas"])
     structure = random.choice(SCRIPT_STRUCTURES)
@@ -182,13 +175,13 @@ REGLAS:
 2. Mencioná sutilmente estos temas: {temas}.
 3. PROHIBIDO usar clichés como: "el universo te pide", "es momento de fluir", "confía en el proceso".
 4. Máximo 80 palabras.
-5. NO incluyas ningún llamado a la acción (WhatsApp, comentarios, etc.), solo la lectura pura.
+5. NO incluyas ningún llamado a la acción, solo la lectura pura.
 
 Devolvé SOLO un JSON válido con este formato exacto:
 {{
   "title": "{signo['nombre'].upper()} HOY | {card} | Tarot",
   "lectura": "Escribí aquí el texto completo de la lectura, de 70 a 80 palabras.",
-  "description": "🔮 Tarot de hoy para {signo['nombre']} con {card}. Recibí tu carta diaria en WhatsApp 👇"
+  "description": "Tarot de hoy para {signo['nombre']} con {card}. Recibí tu carta diaria en WhatsApp."
 }}"""
 
     data = None
@@ -207,7 +200,6 @@ Devolvé SOLO un JSON válido con este formato exacto:
             parsed = json.loads(raw)
             lectura = parsed.get("lectura", "")
             
-            # Si la lectura tiene al menos 40 palabras, la aceptamos
             if len(lectura.split()) >= 40:
                 parsed["tags"] = tags
                 data = parsed
@@ -233,7 +225,6 @@ Devolvé SOLO un JSON válido con este formato exacto:
             "tags": tags
         }
 
-    # ACÁ UNIMOS LA LECTURA DE LA IA CON LOS CTAs (Así nunca falla ni queda vacío)
     guion_completo = (
         f"{data['lectura']} "
         f"{CTA_COMMENT} "
@@ -405,26 +396,34 @@ def _make_tarot_card_visual(card: str) -> np.ndarray:
     w, h = 400, 600
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
+    
     for y in range(h):
         t = y / h
-        r = int(40 * (1 - t) + 20 * t); g = int(20 * (1 - t) + 10 * t); b = int(80 * (1 - t) + 40 * t)
+        r = int(40 * (1 - t) + 20 * t)
+        g = int(20 * (1 - t) + 10 * t)
+        b = int(80 * (1 - t) + 40 * t)
         draw.line([(0, y), (w, y)], fill=(r, g, b, 240))
+        
     draw.rectangle([(0, 0), (w-1, h-1)], outline=C_GOLD, width=6)
     draw.rectangle([(10, 10), (w-11, h-11)], outline=C_GOLD_LIGHT, width=2)
+    
     for _ in range(40):
         x, y = random.randint(20, w-20), random.randint(20, h-20)
         draw.point((x, y), fill=(*C_GOLD_LIGHT, random.randint(100, 255)))
-    glyph = CARD_GLYPHS.get(card, "✨")
-    font_glyph = ImageFont.truetype(_BOLD_FONT_PATHS[0], 140) if os.path.exists(_BOLD_FONT_PATHS[0]) else ImageFont.load_default()
-    bbox = draw.textbbox((0, 0), glyph, font=font_glyph)
-    gx = (w - (bbox[2] - bbox[0])) // 2
-    gy = (h - (bbox[3] - bbox[1])) // 2 - 50
-    draw.text((gx, gy), glyph, font=font_glyph, fill=C_GOLD_LIGHT)
+        
+    cx, cy = w // 2, h // 2 - 40
+    draw.ellipse([cx-90, cy-90, cx+90, cy+90], outline=C_GOLD_LIGHT, width=2)
+    draw.ellipse([cx-70, cy-70, cx+70, cy+70], outline=C_GOLD, width=1)
+    
+    draw.polygon([(cx, cy-45), (cx+45, cy), (cx, cy+45), (cx-45, cy)], outline=C_GOLD_LIGHT, width=3)
+    draw.polygon([(cx, cy-25), (cx+25, cy), (cx, cy+25), (cx-25, cy)], fill=(*C_GOLD, 80))
+    
     card_text = card.upper()
-    font_card = _fit_font_to_width(card_text, w - 40, 44, 24)
+    font_card = _fit_font_to_width(card_text, w - 40, 48, 24)
     bbox = draw.textbbox((0, 0), card_text, font=font_card)
-    cx = (w - (bbox[2] - bbox[0])) // 2
-    draw.text((cx, h - 120), card_text, font=font_card, fill=C_TEXT)
+    cx_text = (w - (bbox[2] - bbox[0])) // 2
+    draw.text((cx_text, h - 120), card_text, font=font_card, fill=C_TEXT)
+    
     return np.array(img)
 
 def _make_title_overlay(signo: dict, card: str) -> np.ndarray:
@@ -468,16 +467,20 @@ def _make_cta_overlay() -> np.ndarray:
         g = int(C_GOLD[1] + (C_GOLD_LIGHT[1] - C_GOLD[1]) * (1 - abs(t * 2 - 1)))
         b = int(C_GOLD[2] + (C_GOLD_LIGHT[2] - C_GOLD[2]) * (1 - abs(t * 2 - 1)))
         draw.point((x, 12), fill=(r, g, b, 160))
-    l1 = "📲 Tu carta del día en WhatsApp"
+        
+    l1 = "Tu carta del día en WhatsApp"
     bbox = draw.textbbox((0, 0), l1, font=font_sm)
     draw.text(((w - (bbox[2] - bbox[0])) // 2, 25), l1, font=font_sm, fill=(*C_TEXT, 240))
+    
     l2 = "tarotgratis.online"
     bbox = draw.textbbox((0, 0), l2, font=font_big)
     draw.text(((w - (bbox[2] - bbox[0]))//2 + 3, 78), l2, font=font_big, fill=(0, 0, 0, 230)); draw.text(((w - (bbox[2] - bbox[0]))//2, 75), l2, font=font_big, fill=(*C_GOLD, 255))
-    l3 = "Solo $4.99/mes · Cancelá cuando quieras"
+    
+    l3 = "Solo $4.99/mes - Cancelá cuando quieras"
     bbox = draw.textbbox((0, 0), l3, font=font_sm)
     draw.text(((w - (bbox[2] - bbox[0])) // 2, 138), l3, font=font_sm, fill=(*C_TEXT, 240))
-    l4 = "👇 Suscribite en la web"
+    
+    l4 = "Suscribite en la web"
     bbox = draw.textbbox((0, 0), l4, font=font_med)
     draw.text(((w - (bbox[2] - bbox[0])) // 2, 175), l4, font=font_med, fill=(*C_GOLD_LIGHT, 255))
     return np.array(img)
@@ -491,7 +494,7 @@ def _make_mid_cta_overlay() -> np.ndarray:
     img = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
     font_big, font_sm = _load_fonts(50, 32, 24)[:2]
-    l1 = "🌙 Tu carta diaria por WhatsApp:"
+    l1 = "Tu carta diaria por WhatsApp:"
     bbox = draw.textbbox((0, 0), l1, font=font_sm)
     draw.text(((w - (bbox[2] - bbox[0])) // 2, 22), l1, font=font_sm, fill=(*C_TEXT, 245))
     l2 = "tarotgratis.online"
@@ -508,7 +511,7 @@ def _make_free_overlay() -> np.ndarray:
     img = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
     font_big, font_sm = _load_fonts(40, 28, 20)[:2]
-    l1 = "📲 Descarga tu carta gratis en:"
+    l1 = "Descarga tu carta gratis en:"
     bbox = draw.textbbox((0, 0), l1, font=font_sm)
     draw.text(((w-(bbox[2]-bbox[0]))//2, 20), l1, font=font_sm, fill=(*C_TEXT,240))
     l2 = "tarotgratis.online"
@@ -527,7 +530,7 @@ def _make_pricing_overlay() -> np.ndarray:
     font_big, font_sm = _load_fonts(52, 34, 24)[:2]
     bbox = draw.textbbox((0, 0), "$4.99 USD / mes", font=font_big)
     draw.text(((w-(bbox[2]-bbox[0]))//2 + 2, 20), "$4.99 USD / mes", font=font_big, fill=(0,0,0,240)); draw.text(((w-(bbox[2]-bbox[0]))//2, 18), "$4.99 USD / mes", font=font_big, fill=(*C_GOLD,255))
-    for i, texto in enumerate(["📲 Carta del día en tu WhatsApp", "🔮 Interpretación personalizada por IA", "🔄 Cancela cuando quieras"]): draw.text((40, 90 + i * 35), texto, font=font_sm, fill=(*C_TEXT,240))
+    for i, texto in enumerate(["Carta del día en tu WhatsApp", "Interpretación personalizada por IA", "Cancela cuando quieras"]): draw.text((40, 90 + i * 35), texto, font=font_sm, fill=(*C_TEXT,240))
     bbox = draw.textbbox((0, 0), "tarotgratis.online", font=font_big)
     draw.text(((w-(bbox[2]-bbox[0]))//2 + 2, 210), "tarotgratis.online", font=font_big, fill=(0,0,0,240)); draw.text(((w-(bbox[2]-bbox[0]))//2, 208), "tarotgratis.online", font=font_big, fill=(*C_GOLD,255))
     return np.array(img)
