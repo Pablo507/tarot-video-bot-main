@@ -1,6 +1,6 @@
 """
 generate_video.py
-v5.3 — Sin emojis (compatibilidad total), sello visual geométrico, contenido separado de CTAs.
+v5.5 — Mapeo exacto de cartas m00-m21, fallback seguro, CTAs automáticos.
 """
 
 import PIL.Image as _pil_img
@@ -157,11 +157,9 @@ def _is_too_similar(new_script: str, prev_scripts: list, umbral: float = 0.55) -
 def generate_reading(signo: dict, card: str) -> dict:
     client = Groq(api_key=os.environ["GROQ_API_KEY"])
     hoy = datetime.now().strftime("%d de %B de %Y")
-    
     significado_carta = TAROT_MEANINGS.get(card, "transformación y crecimiento")
     temas = ", ".join(signo["temas"])
     structure = random.choice(SCRIPT_STRUCTURES)
-    
     tags = ["tarot", signo['nombre'].lower(), f"tarot {signo['nombre'].lower()}", "tarot diario", "carta del día", "tarot gratis", "tarotonline", "horoscopo", signo['elemento'].lower()]
 
     prompt = f"""Eres un tarotista con 20 años de experiencia. Escribí el texto de una lectura para el signo {signo['nombre']}.
@@ -225,14 +223,7 @@ Devolvé SOLO un JSON válido con este formato exacto:
             "tags": tags
         }
 
-    guion_completo = (
-        f"{data['lectura']} "
-        f"{CTA_COMMENT} "
-        f"{CTA_SAVE} "
-        f"{CTA_HOOK} "
-        f"{CTA_FINAL}"
-    )
-    
+    guion_completo = f"{data['lectura']} {CTA_COMMENT} {CTA_SAVE} {CTA_HOOK} {CTA_FINAL}"
     data["script"] = guion_completo
     return data
 
@@ -397,24 +388,48 @@ def _make_tarot_card_visual(card: str) -> np.ndarray:
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     
+    # Intentar cargar la imagen real
+    try:
+        idx = ARCANOS.index(card)
+        
+        # Buscar .jpg o .png en la carpeta cards
+        img_path_jpg = Path("cards") / f"m{idx:02d}.jpg"
+        img_path_png = Path("cards") / f"m{idx:02d}.png"
+        
+        if img_path_jpg.exists():
+            card_img = Image.open(img_path_jpg).convert("RGBA")
+        elif img_path_png.exists():
+            card_img = Image.open(img_path_png).convert("RGBA")
+        else:
+            print(f"   ⚠️ No se encontró la imagen para {card} (m{idx:02d}.jpg). Usando respaldo visual.")
+            card_img = None
+            
+        if card_img:
+            # Redimensionar para que entre en el marco (dejando 20px de margen)
+            card_img = card_img.resize((360, 560), Image.LANCZOS)
+            # Pegar la imagen en el centro del lienzo transparente
+            img.paste(card_img, (20, 20))
+            
+            # Dibujar el marco dorado POR ENCIMA de la imagen
+            draw.rectangle([(0, 0), (w-1, h-1)], outline=C_GOLD, width=6)
+            draw.rectangle([(10, 10), (w-11, h-11)], outline=C_GOLD_LIGHT, width=2)
+            
+            return np.array(img)
+            
+    except Exception as e:
+        print(f"   ⚠️ Error cargando la imagen de {card}: {e}")
+
+    # --- PLAN B: Si no encuentra la imagen, dibuja el marco geométrico ---
     for y in range(h):
         t = y / h
-        r = int(40 * (1 - t) + 20 * t)
-        g = int(20 * (1 - t) + 10 * t)
-        b = int(80 * (1 - t) + 40 * t)
+        r = int(40 * (1 - t) + 20 * t); g = int(20 * (1 - t) + 10 * t); b = int(80 * (1 - t) + 40 * t)
         draw.line([(0, y), (w, y)], fill=(r, g, b, 240))
-        
     draw.rectangle([(0, 0), (w-1, h-1)], outline=C_GOLD, width=6)
     draw.rectangle([(10, 10), (w-11, h-11)], outline=C_GOLD_LIGHT, width=2)
     
-    for _ in range(40):
-        x, y = random.randint(20, w-20), random.randint(20, h-20)
-        draw.point((x, y), fill=(*C_GOLD_LIGHT, random.randint(100, 255)))
-        
     cx, cy = w // 2, h // 2 - 40
     draw.ellipse([cx-90, cy-90, cx+90, cy+90], outline=C_GOLD_LIGHT, width=2)
     draw.ellipse([cx-70, cy-70, cx+70, cy+70], outline=C_GOLD, width=1)
-    
     draw.polygon([(cx, cy-45), (cx+45, cy), (cx, cy+45), (cx-45, cy)], outline=C_GOLD_LIGHT, width=3)
     draw.polygon([(cx, cy-25), (cx+25, cy), (cx, cy+25), (cx-25, cy)], fill=(*C_GOLD, 80))
     
@@ -467,19 +482,15 @@ def _make_cta_overlay() -> np.ndarray:
         g = int(C_GOLD[1] + (C_GOLD_LIGHT[1] - C_GOLD[1]) * (1 - abs(t * 2 - 1)))
         b = int(C_GOLD[2] + (C_GOLD_LIGHT[2] - C_GOLD[2]) * (1 - abs(t * 2 - 1)))
         draw.point((x, 12), fill=(r, g, b, 160))
-        
     l1 = "Tu carta del día en WhatsApp"
     bbox = draw.textbbox((0, 0), l1, font=font_sm)
     draw.text(((w - (bbox[2] - bbox[0])) // 2, 25), l1, font=font_sm, fill=(*C_TEXT, 240))
-    
     l2 = "tarotgratis.online"
     bbox = draw.textbbox((0, 0), l2, font=font_big)
     draw.text(((w - (bbox[2] - bbox[0]))//2 + 3, 78), l2, font=font_big, fill=(0, 0, 0, 230)); draw.text(((w - (bbox[2] - bbox[0]))//2, 75), l2, font=font_big, fill=(*C_GOLD, 255))
-    
     l3 = "Solo $4.99/mes - Cancelá cuando quieras"
     bbox = draw.textbbox((0, 0), l3, font=font_sm)
     draw.text(((w - (bbox[2] - bbox[0])) // 2, 138), l3, font=font_sm, fill=(*C_TEXT, 240))
-    
     l4 = "Suscribite en la web"
     bbox = draw.textbbox((0, 0), l4, font=font_med)
     draw.text(((w - (bbox[2] - bbox[0])) // 2, 175), l4, font=font_med, fill=(*C_GOLD_LIGHT, 255))
