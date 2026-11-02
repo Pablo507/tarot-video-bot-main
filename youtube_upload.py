@@ -1,6 +1,6 @@
 """
 youtube_upload.py — sube videos a YouTube Data API v3
-Optimizado para conversión a suscripción de $4.99/mes
+Optimizado para conversión: Primero Suscripción al canal, luego venta de WhatsApp.
 """
 import os, sys, argparse
 from pathlib import Path
@@ -14,17 +14,15 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 CLIENT_SECRETS = "client_secrets.json"
 TOKEN_FILE = "token.json"
 
-# ── CTA optimizado para conversión a suscripción ──────────────────────
+# ── CTA optimizado para conversión ─────────────────────────────────────
 CTA_BLOCK = """
 
-🌙 ¿Quieres recibir tu carta del tarot CADA MAÑANA en tu WhatsApp?
+🔮 ¿Te gustó esta lectura? ¡Suscribite al canal para recibir tu energía del día!
+✅ Activá la campanita para no perderte tu carta diaria.
 
-✅ Una carta del tarot cada mañana
-✅ Interpretación personalizada por IA
-✅ Directo a tu WhatsApp, sin apps extra
-✅ Solo $4.99/mes · Cancelás cuando quieras
-
+🌙 Y si querés recibir tu carta personalizada CADA MAÑANA en tu WhatsApp:
 👉 Suscribite aquí: https://tarotgratis.online/#suscribirme
+(Solo $4.99/mes · Cancelás cuando quieras)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -51,7 +49,7 @@ def get_credentials():
 
 def upload_video(video_path, title, description, tags, category_id="22", privacy="public"):
     """
-    Sube un video a YouTube con CTA optimizado para suscripción.
+    Sube un video a YouTube con CTA optimizado.
     """
     creds = get_credentials()
     youtube = build("youtube", "v3", credentials=creds)

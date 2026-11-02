@@ -1,6 +1,6 @@
 """
 generate_video.py
-v5.5 — Mapeo exacto de cartas m00-m21, fallback seguro, CTAs automáticos.
+v5.6 — Pide suscripción al canal en audio, usa cartas reales de la carpeta cards/, CTAs automáticos.
 """
 
 import PIL.Image as _pil_img
@@ -88,8 +88,8 @@ TAROT_MEANINGS = {
 SCRIPT_STRUCTURES = ["PREGUNTA_DIRECTA", "ESCENA_SENSORIAL", "AFIRMACION_FUERTE", "NOMBRE_DIRECTO", "CONTRASTE"]
 CTA_COMMENT = "Contame en los comentarios si esto te resuena hoy."
 CTA_SAVE = "Guardá este video en favoritos para volver a verlo cuando lo necesites."
-CTA_HOOK = "Si querés una carta así cada mañana, te la mando por WhatsApp."
-CTA_FINAL = "Para recibir tu carta del tarot cada mañana en tu WhatsApp, suscribite en tarotgratis punto online por menos de cinco dólares al mes."
+CTA_HOOK = "Si te gustó esta lectura, suscribite al canal y activá la campanita."
+CTA_FINAL = "Y si querés recibir tu carta del tarot cada mañana en tu WhatsApp, suscribite en tarotgratis punto online por menos de cinco dólares al mes."
 
 HOOK_STYLES = ["PREGUNTA_INCOMODA", "AFIRMACION_BRUTAL", "PROHIBICION", "VERDAD_DURA", "ADVERTENCIA", "REVELACION", "SECRETO", "TIEMPO_LIMITE"]
 
@@ -491,7 +491,7 @@ def _make_cta_overlay() -> np.ndarray:
     l3 = "Solo $4.99/mes - Cancelá cuando quieras"
     bbox = draw.textbbox((0, 0), l3, font=font_sm)
     draw.text(((w - (bbox[2] - bbox[0])) // 2, 138), l3, font=font_sm, fill=(*C_TEXT, 240))
-    l4 = "Suscribite en la web"
+    l4 = "Suscribite al canal y a la web"
     bbox = draw.textbbox((0, 0), l4, font=font_med)
     draw.text(((w - (bbox[2] - bbox[0])) // 2, 175), l4, font=font_med, fill=(*C_GOLD_LIGHT, 255))
     return np.array(img)
