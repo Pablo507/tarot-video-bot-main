@@ -3,7 +3,7 @@ name: 🔮 Publicar videos de Tarot en YouTube
 on:
   # ⛔ Cron de GitHub DESACTIVADO — usamos cron-job.org
   # schedule:
-  #   - cron: "0 9 * * *"
+  #   - cron: "0 6 * * *"
 
   workflow_dispatch:
     inputs:
@@ -74,6 +74,8 @@ jobs:
           FORCE="${{ github.event.inputs.force_group }}"
           GRP="${{ matrix.group }}"
 
+          # Calendario: un solo grupo por día (3 videos/día)
+          # Lunes=0, Martes=1, Miércoles=2, Jueves=3, Viernes=0, Sábado=1, Domingo=2
           case "$DOW" in
             1) GRUPO_HOY="0" ;;
             2) GRUPO_HOY="1" ;;
@@ -102,12 +104,6 @@ jobs:
 
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
           echo "DOW=$DOW grupo_hoy=$GRUPO_HOY grupo_actual=$GRP force='$FORCE' → $RUN ($MOTIVO)"
-
-      - name: Sistema (ffmpeg + fuentes)
-        if: steps.check.outputs.run == 'true'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg fonts-dejavu fonts-liberation
 
       - name: Dependencias Python
         if: steps.check.outputs.run == 'true'
