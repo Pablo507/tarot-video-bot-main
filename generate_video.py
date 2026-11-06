@@ -1,6 +1,6 @@
 """
 generate_video.py
-v6.1 — Anti-plantilla (5 layouts), Cartas reales, Gancho a Web Gratis.
+v6.2 — Anti-plantilla (5 layouts), Cartas reales, Gancho a Web Gratis.
 """
 
 import PIL.Image as _pil_img
@@ -47,6 +47,15 @@ C_RED_ALERT  = (220, 60, 60)
 
 # 5 Layouts TOTALMENTE diferentes
 LAYOUT_STYLES = ["TOP_TEXT", "CENTER_BOX", "BOTTOM_TEXT", "FULL_IMPACT", "MINIMAL_CARD"]
+
+# Aquí estaba el error, faltaba esta lista:
+PALETAS_TINT = [
+    {"nombre": "purple", "color": (130, 43, 189), "opacity": 0.18},
+    {"nombre": "blue",   "color": (15, 40, 100),  "opacity": 0.22},
+    {"nombre": "wine",   "color": (90, 20, 60),   "opacity": 0.20},
+    {"nombre": "teal",   "color": (15, 80, 80),   "opacity": 0.20},
+    {"nombre": "indigo", "color": (50, 30, 120),  "opacity": 0.22},
+]
 
 TAROT_MEANINGS = {
     "El Loco": "nuevos comienzos, dar un salto de fe, libertad, espontaneidad",
