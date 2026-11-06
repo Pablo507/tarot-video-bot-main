@@ -1,6 +1,6 @@
 """
 generate_video.py
-v6.2 — Anti-plantilla (5 layouts), Cartas reales, Gancho a Web Gratis.
+v6.3 — Anti-plantilla (5 layouts), Cartas reales, Gancho a Web Gratis.
 """
 
 import PIL.Image as _pil_img
@@ -48,7 +48,6 @@ C_RED_ALERT  = (220, 60, 60)
 # 5 Layouts TOTALMENTE diferentes
 LAYOUT_STYLES = ["TOP_TEXT", "CENTER_BOX", "BOTTOM_TEXT", "FULL_IMPACT", "MINIMAL_CARD"]
 
-# Aquí estaba el error, faltaba esta lista:
 PALETAS_TINT = [
     {"nombre": "purple", "color": (130, 43, 189), "opacity": 0.18},
     {"nombre": "blue",   "color": (15, 40, 100),  "opacity": 0.22},
@@ -98,19 +97,20 @@ HOOK_PHRASES = [
 
 SIGN_CARD_OFFSETS = [0, 7, 14, 3, 10, 17, 4, 11, 18, 5, 12, 19]
 
+# Restaurados los emojis para que no falle
 SIGNOS = [
-    {"nombre": "Aries", "elemento": "Fuego", "tono": "impulsivo, directo", "temas": ["acción inmediata", "liderazgo", "coraje", "paciencia"]},
-    {"nombre": "Tauro", "elemento": "Tierra", "tono": "sensual, estable", "temas": ["seguridad material", "placeres simples", "constancia", "soltar"]},
-    {"nombre": "Géminis", "elemento": "Aire", "tono": "curioso, disperso", "temas": ["comunicación", "aprendizaje", "decisiones", "elegir"]},
-    {"nombre": "Cáncer", "elemento": "Agua", "tono": "emocional, protector", "temas": ["familia", "hogar", "sanar", "límites"]},
-    {"nombre": "Leo", "elemento": "Fuego", "tono": "dramático, orgulloso", "temas": ["brillar", "creatividad", "reconocimiento", "humildad"]},
-    {"nombre": "Virgo", "elemento": "Tierra", "tono": "analítico, servicial", "temas": ["orden", "salud", "servicio", "soltar perfeccionismo"]},
-    {"nombre": "Libra", "elemento": "Aire", "tono": "diplomático, indeciso", "temas": ["relaciones", "belleza", "equilibrio", "decidir"]},
-    {"nombre": "Escorpio", "elemento": "Agua", "tono": "intenso, reservado", "temas": ["transformación", "poder personal", "celos", "confiar"]},
-    {"nombre": "Sagitario", "elemento": "Fuego", "tono": "aventurero, exagerado", "temas": ["expansión", "viajes", "fe", "compromiso"]},
-    {"nombre": "Capricornio", "elemento": "Tierra", "tono": "disciplinado, frío", "temas": ["metas", "responsabilidad", "trabajo", "disfrutar"]},
-    {"nombre": "Acuario", "elemento": "Aire", "tono": "rebelde, distante", "temas": ["libertad", "innovación", "amistades", "emociones"]},
-    {"nombre": "Piscis", "elemento": "Agua", "tono": "soñador, evasivo", "temas": ["intuición", "arte", "espiritualidad", "límites"]},
+    {"nombre": "Aries", "emoji": "♈", "elemento": "Fuego", "tono": "impulsivo, directo", "temas": ["acción inmediata", "liderazgo", "coraje", "paciencia"]},
+    {"nombre": "Tauro", "emoji": "♉", "elemento": "Tierra", "tono": "sensual, estable", "temas": ["seguridad material", "placeres simples", "constancia", "soltar"]},
+    {"nombre": "Géminis", "emoji": "♊", "elemento": "Aire", "tono": "curioso, disperso", "temas": ["comunicación", "aprendizaje", "decisiones", "elegir"]},
+    {"nombre": "Cáncer", "emoji": "♋", "elemento": "Agua", "tono": "emocional, protector", "temas": ["familia", "hogar", "sanar", "límites"]},
+    {"nombre": "Leo", "emoji": "♌", "elemento": "Fuego", "tono": "dramático, orgulloso", "temas": ["brillar", "creatividad", "reconocimiento", "humildad"]},
+    {"nombre": "Virgo", "emoji": "♍", "elemento": "Tierra", "tono": "analítico, servicial", "temas": ["orden", "salud", "servicio", "soltar perfeccionismo"]},
+    {"nombre": "Libra", "emoji": "♎", "elemento": "Aire", "tono": "diplomático, indeciso", "temas": ["relaciones", "belleza", "equilibrio", "decidir"]},
+    {"nombre": "Escorpio", "emoji": "♏", "elemento": "Agua", "tono": "intenso, reservado", "temas": ["transformación", "poder personal", "celos", "confiar"]},
+    {"nombre": "Sagitario", "emoji": "♐", "elemento": "Fuego", "tono": "aventurero, exagerado", "temas": ["expansión", "viajes", "fe", "compromiso"]},
+    {"nombre": "Capricornio", "emoji": "♑", "elemento": "Tierra", "tono": "disciplinado, frío", "temas": ["metas", "responsabilidad", "trabajo", "disfrutar"]},
+    {"nombre": "Acuario", "emoji": "♒", "elemento": "Aire", "tono": "rebelde, distante", "temas": ["libertad", "innovación", "amistades", "emociones"]},
+    {"nombre": "Piscis", "emoji": "♓", "elemento": "Agua", "tono": "soñador, evasivo", "temas": ["intuición", "arte", "espiritualidad", "límites"]},
 ]
 
 ARCANOS = ["El Loco", "El Mago", "La Sacerdotisa", "La Emperatriz", "El Emperador", "El Hierofante", "Los Enamorados", "El Carro", "La Fuerza", "El Ermitaño", "La Rueda de la Fortuna", "La Justicia", "El Colgado", "La Muerte", "La Templanza", "El Diablo", "La Torre", "La Estrella", "La Luna", "El Sol", "El Juicio", "El Mundo"]
