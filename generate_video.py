@@ -1,6 +1,6 @@
 """
 generate_video.py
-v6.3 — Anti-plantilla (5 layouts), Cartas reales, Gancho a Web Gratis.
+v7.0 - Premium: Carta protagonista, lectura profunda, cero spam visual.
 """
 
 import PIL.Image as _pil_img
@@ -38,22 +38,13 @@ C_BG_DEEP    = (30, 20, 59)
 C_BG_MID     = (45, 30, 87)
 C_GOLD       = (201, 168, 76)
 C_GOLD_LIGHT = (240, 208, 128)
-C_PURPLE     = (130, 43, 189)
-C_PURPLE_L   = (182, 109, 248)
-C_TEAL       = (15, 171, 162)
 C_TEXT       = (253, 248, 240)
 C_MUTED      = (160, 147, 176)
-C_RED_ALERT  = (220, 60, 60)
-
-# 5 Layouts TOTALMENTE diferentes
-LAYOUT_STYLES = ["TOP_TEXT", "CENTER_BOX", "BOTTOM_TEXT", "FULL_IMPACT", "MINIMAL_CARD"]
 
 PALETAS_TINT = [
-    {"nombre": "purple", "color": (130, 43, 189), "opacity": 0.18},
-    {"nombre": "blue",   "color": (15, 40, 100),  "opacity": 0.22},
-    {"nombre": "wine",   "color": (90, 20, 60),   "opacity": 0.20},
-    {"nombre": "teal",   "color": (15, 80, 80),   "opacity": 0.20},
-    {"nombre": "indigo", "color": (50, 30, 120),  "opacity": 0.22},
+    {"nombre": "purple", "color": (130, 43, 189), "opacity": 0.25},
+    {"nombre": "blue",   "color": (15, 40, 100),  "opacity": 0.30},
+    {"nombre": "wine",   "color": (90, 20, 60),   "opacity": 0.25},
 ]
 
 TAROT_MEANINGS = {
@@ -81,23 +72,11 @@ TAROT_MEANINGS = {
     "El Mundo": "culminación, éxito, logros, plenitud",
 }
 
-SCRIPT_STRUCTURES = ["PREGUNTA_DIRECTA", "ESCENA_SENSORIAL", "AFIRMACION_FUERTE", "NOMBRE_DIRECTO", "CONTRASTE"]
-CTA_COMMENT = "Contame en los comentarios si esto te resuena hoy."
-CTA_SAVE = "Guardá este video en favoritos para volver a verlo cuando lo necesites."
-
-# ESTRATEGIA: Ofrecer algo GRATIS para que entren a la web
-CTA_HOOK = "Si querés saber qué te depara el destino, entrá ahora a tarotgratis.online."
-CTA_FINAL = "Sacá tu carta del tarot GRATIS por tiempo limitado en tarotgratis.online. Sin registro, solo entrás y te lees la suerte."
-
-HOOK_PHRASES = [
-    "¿POR QUÉ TE SENTÍS ASÍ?", "ESTO NO ES CASUALIDAD", "DEJÁ DE HACER ESTO HOY",
-    "ESTO TE VA A DOLER", "CUIDADO", "EL ERROR QUE COMETÉS",
-    "NADIE TE DIJO ESTO", "TENÉS HASTA HOY"
-]
+# Solo un CTA sutil al final
+CTA_FINAL = "Si querés saber qué te depara el destino, entrá ahora a tarotgratis.online y sacá tu carta gratis."
 
 SIGN_CARD_OFFSETS = [0, 7, 14, 3, 10, 17, 4, 11, 18, 5, 12, 19]
 
-# Restaurados los emojis para que no falle
 SIGNOS = [
     {"nombre": "Aries", "emoji": "♈", "elemento": "Fuego", "tono": "impulsivo, directo", "temas": ["acción inmediata", "liderazgo", "coraje", "paciencia"]},
     {"nombre": "Tauro", "emoji": "♉", "elemento": "Tierra", "tono": "sensual, estable", "temas": ["seguridad material", "placeres simples", "constancia", "soltar"]},
@@ -148,26 +127,17 @@ def _fit_font_to_width(text: str, max_width: int, initial_size: int, min_size: i
         size -= 2
     return ImageFont.truetype(_BOLD_FONT_PATHS[0], min_size) if os.path.exists(_BOLD_FONT_PATHS[0]) else ImageFont.load_default()
 
-def _is_too_similar(new_script: str, prev_scripts: list, umbral: float = 0.55) -> bool:
-    new_set = set(w.lower().strip(".,!?¡¿;:") for w in new_script.split() if len(w) > 4)
-    if not new_set: return False
-    for prev in prev_scripts:
-        prev_set = set(w.lower().strip(".,!?¡¿;:") for w in prev.split() if len(w) > 4)
-        if not prev_set: continue
-        if len(new_set & prev_set) / len(new_set | prev_set) > umbral: return True
-    return False
-
 def generate_reading(signo: dict, card: str) -> dict:
     client = Groq(api_key=os.environ["GROQ_API_KEY"])
     hoy = datetime.now().strftime("%d de %B de %Y")
     significado_carta = TAROT_MEANINGS.get(card, "transformación y crecimiento")
     temas = ", ".join(signo["temas"])
     
-    prompt = f"""Eres un tarotista experto. Escribí una lectura para {signo['nombre']} con la carta "{card}".
+    prompt = f"""Eres un tarotista experto. Escribí una lectura profunda para {signo['nombre']} con la carta "{card}".
 Significado: {significado_carta}.
-AUDIENCIA: 45-64 años, LATAM. Tono directo.
+AUDIENCIA: 45-64 años, LATAM. Tono directo y sabio.
 Mencioná: {temas}.
-Máximo 70 palabras. NO uses clichés. Solo la lectura pura.
+REGLAS: Mínimo 80 palabras, máximo 95. NO uses clichés. Enfocate en explicar el mensaje de la carta.
 
 JSON:
 {{"title": "{signo['nombre'].upper()} HOY | {card}", "lectura": "texto aquí", "description": "Tarot de hoy para {signo['nombre']}."}}"""
@@ -177,19 +147,19 @@ JSON:
         try:
             resp = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": prompt}], temperature=0.9, max_tokens=350,
+                messages=[{"role": "user", "content": prompt}], temperature=0.8, max_tokens=400,
             )
             raw = resp.choices[0].message.content.strip().replace("```json", "").replace("```", "").strip()
             parsed = json.loads(raw)
-            if len(parsed.get("lectura", "").split()) >= 30:
+            if len(parsed.get("lectura", "").split()) >= 60:
                 data = parsed
                 break
         except: time.sleep(2)
 
     if not data:
-        data = {"title": f"{signo['nombre'].upper()} HOY | {card}", "lectura": f"{signo['nombre']}, {card} llega para mostrarte el camino.", "description": "Tarot"}
+        data = {"title": f"{signo['nombre'].upper()} HOY | {card}", "lectura": f"{signo['nombre']}, la energía de {card} te invita a reflexionar sobre {significado_carta}. Es un momento clave para tomar decisiones con el corazón.", "description": "Tarot"}
 
-    data["script"] = f"{data['lectura']} {CTA_COMMENT} {CTA_SAVE} {CTA_HOOK} {CTA_FINAL}"
+    data["script"] = f"{data['lectura']} {CTA_FINAL}"
     data["tags"] = ["tarot", signo['nombre'].lower(), "tarot gratis", "horoscopo"]
     return data
 
@@ -225,193 +195,72 @@ def download_pexels_video(card: str, output_path: str) -> bool:
         except: continue
     return False
 
-def _make_hook_overlay(signo: dict, card: str) -> np.ndarray:
-    w, h = VIDEO_W, VIDEO_H
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    
-    layout = random.choice(LAYOUT_STYLES)
-    phrase = random.choice(HOOK_PHRASES)
-    
-    if layout == "TOP_TEXT":
-        draw.rectangle([(0, 0), (w, h//3)], fill=(0,0,0,180))
-        f1 = _fit_font_to_width(phrase, w-80, 70, 44)
-        f2 = _fit_font_to_width(signo['nombre'].upper(), w-80, 60, 38)
-        bbox1 = draw.textbbox((0,0), phrase, font=f1)
-        draw.text(((w-(bbox1[2]-bbox1[0]))//2, 150), phrase, font=f1, fill=C_GOLD)
-        bbox2 = draw.textbbox((0,0), signo['nombre'].upper(), font=f2)
-        draw.text(((w-(bbox2[2]-bbox2[0]))//2, 250), signo['nombre'].upper(), font=f2, fill=C_TEXT)
-
-    elif layout == "CENTER_BOX":
-        draw.rectangle([(40, h//2 - 150), (w-40, h//2 + 150)], fill=(0,0,0,220), outline=C_GOLD, width=4)
-        f1 = _fit_font_to_width(signo['nombre'].upper(), w-100, 60, 36)
-        f2 = _fit_font_to_width(phrase, w-100, 50, 30)
-        bbox1 = draw.textbbox((0,0), signo['nombre'].upper(), font=f1)
-        draw.text(((w-(bbox1[2]-bbox1[0]))//2, h//2 - 90), signo['nombre'].upper(), font=f1, fill=C_GOLD)
-        bbox2 = draw.textbbox((0,0), phrase, font=f2)
-        draw.text(((w-(bbox2[2]-bbox2[0]))//2, h//2 + 10), phrase, font=f2, fill=C_TEXT)
-
-    elif layout == "BOTTOM_TEXT":
-        draw.rectangle([(0, h - h//3), (w, h)], fill=(0,0,0,200))
-        f1 = _fit_font_to_width(phrase, w-80, 65, 40)
-        f2 = _fit_font_to_width(f"Para {signo['nombre'].upper()}", w-80, 45, 30)
-        bbox1 = draw.textbbox((0,0), phrase, font=f1)
-        draw.text(((w-(bbox1[2]-bbox1[0]))//2, h - 250), phrase, font=f1, fill=C_RED_ALERT)
-        bbox2 = draw.textbbox((0,0), f"Para {signo['nombre'].upper()}", font=f2)
-        draw.text(((w-(bbox2[2]-bbox2[0]))//2, h - 140), f"Para {signo['nombre'].upper()}", font=f2, fill=C_TEXT)
-
-    elif layout == "FULL_IMPACT":
-        f1 = _fit_font_to_width(signo['nombre'].upper(), w-40, 90, 50)
-        bbox1 = draw.textbbox((0,0), signo['nombre'].upper(), font=f1)
-        draw.text(((w-(bbox1[2]-bbox1[0]))//2, 100), signo['nombre'].upper(), font=f1, fill=C_TEXT)
-        draw.line([(100, 220), (w-100, 220)], fill=C_GOLD, width=4)
-        f2 = _fit_font_to_width(phrase, w-40, 80, 45)
-        bbox2 = draw.textbbox((0,0), phrase, font=f2)
-        draw.text(((w-(bbox2[2]-bbox2[0]))//2, h-300), phrase, font=f2, fill=C_GOLD_LIGHT)
-
-    else: # MINIMAL_CARD
-        draw.rectangle([(40, 100), (w-40, 350)], fill=(0,0,0,230), outline=C_GOLD_LIGHT, width=2)
-        f1 = _fit_font_to_width(phrase, w-100, 60, 36)
-        f2 = _fit_font_to_width(signo['nombre'].upper(), w-100, 50, 30)
-        bbox1 = draw.textbbox((0,0), phrase, font=f1)
-        draw.text(((w-(bbox1[2]-bbox1[0]))//2, 160), phrase, font=f1, fill=C_TEXT)
-        bbox2 = draw.textbbox((0,0), signo['nombre'].upper(), font=f2)
-        draw.text(((w-(bbox2[2]-bbox2[0]))//2, 260), signo['nombre'].upper(), font=f2, fill=C_GOLD)
-
-    return np.array(img)
-
 def _make_tarot_card_visual(card: str) -> np.ndarray:
-    w, h = 400, 600
+    w, h = 500, 750  # Tarjeta más grande
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     try:
         idx = ARCANOS.index(card)
         img_path = Path("cards") / f"m{idx:02d}.jpg"
         if img_path.exists():
-            card_img = Image.open(img_path).convert("RGBA").resize((360, 560), Image.LANCZOS)
+            card_img = Image.open(img_path).convert("RGBA").resize((460, 710), Image.LANCZOS)
             img.paste(card_img, (20, 20))
-            draw.rectangle([(0, 0), (w-1, h-1)], outline=C_GOLD, width=6)
-            draw.rectangle([(10, 10), (w-11, h-11)], outline=C_GOLD_LIGHT, width=2)
+            # Marco elegante
+            draw.rectangle([(0, 0), (w-1, h-1)], outline=C_GOLD, width=8)
+            draw.rectangle([(12, 12), (w-13, h-13)], outline=C_GOLD_LIGHT, width=2)
             return np.array(img)
     except: pass
 
-    # Fallback geométrico
-    for y in range(h):
-        t = y / h
-        draw.line([(0, y), (w, y)], fill=(int(40*(1-t)), int(20*(1-t)), int(80*(1-t)), 240))
-    draw.rectangle([(0, 0), (w-1, h-1)], outline=C_GOLD, width=6)
-    draw.rectangle([(10, 10), (w-11, h-11)], outline=C_GOLD_LIGHT, width=2)
-    cx, cy = w//2, h//2 - 40
-    draw.ellipse([cx-90, cy-90, cx+90, cy+90], outline=C_GOLD_LIGHT, width=2)
-    draw.polygon([(cx, cy-45), (cx+45, cy), (cx, cy+45), (cx-45, cy)], outline=C_GOLD_LIGHT, width=3)
-    font_card = _fit_font_to_width(card.upper(), w - 40, 48, 24)
+    # Fallback si falta la imagen
+    draw.rectangle([(0, 0), (w-1, h-1)], fill=C_BG_DEEP, outline=C_GOLD, width=8)
+    font_card = _fit_font_to_width(card.upper(), w - 40, 60, 30)
     bbox = draw.textbbox((0, 0), card.upper(), font=font_card)
-    draw.text(((w-(bbox[2]-bbox[0]))//2, h-120), card.upper(), font=font_card, fill=C_TEXT)
+    draw.text(((w-(bbox[2]-bbox[0]))//2, h//2), card.upper(), font=font_card, fill=C_TEXT)
     return np.array(img)
 
-def _make_title_overlay(signo: dict, card: str) -> np.ndarray:
-    w, h = VIDEO_W, 390
+def _make_top_title(signo: dict, card: str) -> np.ndarray:
+    w, h = VIDEO_W, 200
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    bg  = Image.new("RGBA", (w, h))
-    for y in range(h):
-        for x in range(w): bg.putpixel((x, y), (*C_BG_DEEP, int(210 * max(0, 1 - (y / h) * 1.0))))
-    img  = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
-    font_sign, font_card, font_url = _load_fonts(50, 32, 42)
-    draw.line([(40, 16), (w - 40, 16)], fill=(*C_GOLD, 255), width=2)
-    signo_text = f"-- {signo['nombre'].upper()} --"
+    # Gradiente sutil arriba
+    for y in range(h):
+        alpha = int(200 * (1 - (y/h)))
+        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, alpha))
+    
+    font_sign, font_card, _ = _load_fonts(55, 40, 20)
+    
+    signo_text = signo['nombre'].upper()
     bbox = draw.textbbox((0, 0), signo_text, font=font_sign)
-    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 28), signo_text, font=font_sign, fill=(0, 0, 0, 200)); draw.text(((w - (bbox[2]-bbox[0]))//2, 26), signo_text, font=font_sign, fill=(*C_GOLD, 255))
-    bbox = draw.textbbox((0, 0), card.upper(), font=font_card)
-    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 92), card.upper(), font=font_card, fill=(0, 0, 0, 200)); draw.text(((w - (bbox[2]-bbox[0]))//2, 90), card.upper(), font=font_card, fill=(*C_TEXT, 240))
-    font_sm = _load_fonts(24, 24, 22)[2]
-    bbox = draw.textbbox((0, 0), "Lectura gratis en:", font=font_sm)
-    draw.text(((w - (bbox[2]-bbox[0]))//2, 150), "Lectura gratis en:", font=font_sm, fill=(*C_MUTED, 230))
-    bbox = draw.textbbox((0, 0), "tarotgratis.online", font=font_url)
-    draw.text(((w - (bbox[2]-bbox[0]))//2+3, 183), "tarotgratis.online", font=font_url, fill=(0, 0, 0, 240)); draw.text(((w - (bbox[2]-bbox[0]))//2, 180), "tarotgratis.online", font=font_url, fill=(*C_GOLD, 255))
-    for xi in range(40, w - 40):
-        ga = int(210 * (1 - abs(((xi - 40) / (w - 80)) * 2 - 1)))
-        draw.point((xi, 246), fill=(*C_GOLD, ga))
-    draw.point((w//2, 246), fill=(*C_GOLD_LIGHT, 255))
+    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 40+2), signo_text, font=font_sign, fill=(0, 0, 0, 200))
+    draw.text(((w - (bbox[2]-bbox[0]))//2, 40), signo_text, font=font_sign, fill=C_GOLD)
+    
+    card_text = card.upper()
+    bbox = draw.textbbox((0, 0), card_text, font=font_card)
+    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 110+2), card_text, font=font_card, fill=(0, 0, 0, 200))
+    draw.text(((w - (bbox[2]-bbox[0]))//2, 110), card_text, font=font_card, fill=C_TEXT)
+    
     return np.array(img)
 
-def _make_cta_overlay() -> np.ndarray:
-    w, h = VIDEO_W, 240
+def _make_bottom_cta() -> np.ndarray:
+    w, h = VIDEO_W, 200
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    bg = Image.new("RGBA", (w, h))
-    for y in range(h):
-        for x in range(w): bg.putpixel((x, y), (int(C_BG_DEEP[0]*.6), int(C_BG_DEEP[1]*.6), int(C_BG_MID[2]*.8), int(220 * (y / h))))
-    img = Image.alpha_composite(img, bg)
     draw = ImageDraw.Draw(img)
-    font_big, font_med, font_sm = _load_fonts(44, 30, 22)
-    for x in range(w):
-        t = x / w
-        r = int(C_GOLD[0] + (C_GOLD_LIGHT[0] - C_GOLD[0]) * (1 - abs(t * 2 - 1)))
-        g = int(C_GOLD[1] + (C_GOLD_LIGHT[1] - C_GOLD[1]) * (1 - abs(t * 2 - 1)))
-        b = int(C_GOLD[2] + (C_GOLD_LIGHT[2] - C_GOLD[2]) * (1 - abs(t * 2 - 1)))
-        draw.point((x, 12), fill=(r, g, b, 160))
+    # Gradiente sutil abajo
+    for y in range(h):
+        alpha = int(200 * (y/h))
+        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, alpha))
     
-    l1 = "Entrá a la web y sacá tu carta GRATIS"
+    font_big, _, font_sm = _load_fonts(50, 20, 24)
+    
+    l1 = "Tu carta del día GRATIS en:"
     bbox = draw.textbbox((0, 0), l1, font=font_sm)
-    draw.text(((w - (bbox[2] - bbox[0])) // 2, 25), l1, font=font_sm, fill=(*C_TEXT, 240))
+    draw.text(((w - (bbox[2] - bbox[0])) // 2, 40), l1, font=font_sm, fill=C_MUTED)
     
     l2 = "tarotgratis.online"
     bbox = draw.textbbox((0, 0), l2, font=font_big)
-    draw.text(((w - (bbox[2] - bbox[0]))//2 + 3, 78), l2, font=font_big, fill=(0, 0, 0, 230)); draw.text(((w - (bbox[2] - bbox[0]))//2, 75), l2, font=font_big, fill=(*C_GOLD, 255))
+    draw.text(((w - (bbox[2] - bbox[0]))//2 + 3, 80+3), l2, font=font_big, fill=(0, 0, 0, 230))
+    draw.text(((w - (bbox[2] - bbox[0]))//2, 80), l2, font=font_big, fill=C_GOLD)
     
-    l4 = "¡Leé tu suerte ahora mismo!"
-    bbox = draw.textbbox((0, 0), l4, font=font_med)
-    draw.text(((w - (bbox[2] - bbox[0])) // 2, 175), l4, font=font_med, fill=(*C_GOLD_LIGHT, 255))
-    return np.array(img)
-
-def _make_mid_cta_overlay() -> np.ndarray:
-    w, h = VIDEO_W, 180
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    bg = Image.new("RGBA", (w, h))
-    for y in range(h):
-        for x in range(w): bg.putpixel((x, y), (*C_BG_DEEP, min(215, 175 + int(40 * (y / h)))))
-    img = Image.alpha_composite(img, bg)
-    draw = ImageDraw.Draw(img)
-    font_big, font_sm = _load_fonts(50, 32, 24)[:2]
-    l1 = "Tu carta del día en:"
-    bbox = draw.textbbox((0, 0), l1, font=font_sm)
-    draw.text(((w - (bbox[2] - bbox[0])) // 2, 22), l1, font=font_sm, fill=(*C_TEXT, 245))
-    l2 = "tarotgratis.online"
-    bbox = draw.textbbox((0, 0), l2, font=font_big)
-    draw.text(((w - (bbox[2] - bbox[0]))//2 + 3, 68), l2, font=font_big, fill=(0, 0, 0, 240)); draw.text(((w - (bbox[2] - bbox[0]))//2, 65), l2, font=font_big, fill=(*C_GOLD, 255))
-    return np.array(img)
-
-def _make_free_overlay() -> np.ndarray:
-    w, h = VIDEO_W, 180
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    bg = Image.new("RGBA", (w, h))
-    for y in range(h):
-        for x in range(w): bg.putpixel((x, y), (*C_BG_DEEP, int(220 * (y / h))))
-    img = Image.alpha_composite(img, bg)
-    draw = ImageDraw.Draw(img)
-    font_big, font_sm = _load_fonts(40, 28, 20)[:2]
-    l1 = "Descarga tu carta gratis en:"
-    bbox = draw.textbbox((0, 0), l1, font=font_sm)
-    draw.text(((w-(bbox[2]-bbox[0]))//2, 20), l1, font=font_sm, fill=(*C_TEXT,240))
-    l2 = "tarotgratis.online"
-    bbox = draw.textbbox((0, 0), l2, font=font_big)
-    draw.text(((w-(bbox[2]-bbox[0]))//2 + 2, 70), l2, font=font_big, fill=(0,0,0,240)); draw.text(((w-(bbox[2]-bbox[0]))//2, 68), l2, font=font_big, fill=(*C_GOLD,255))
-    return np.array(img)
-
-def _make_pricing_overlay() -> np.ndarray:
-    w, h = VIDEO_W, 280
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    bg = Image.new("RGBA", (w, h))
-    for y in range(h):
-        for x in range(w): bg.putpixel((x, y), (*C_BG_DEEP, int(220 * (y / h))))
-    img = Image.alpha_composite(img, bg)
-    draw = ImageDraw.Draw(img)
-    font_big, font_sm = _load_fonts(52, 34, 24)[:2]
-    bbox = draw.textbbox((0, 0), "$4.99 USD / mes", font=font_big)
-    draw.text(((w-(bbox[2]-bbox[0]))//2 + 2, 20), "$4.99 USD / mes", font=font_big, fill=(0,0,0,240)); draw.text(((w-(bbox[2]-bbox[0]))//2, 18), "$4.99 USD / mes", font=font_big, fill=(*C_GOLD,255))
-    for i, texto in enumerate(["Carta del día en tu WhatsApp", "Interpretación personalizada por IA", "Cancela cuando quieras"]): draw.text((40, 90 + i * 35), texto, font=font_sm, fill=(*C_TEXT,240))
-    bbox = draw.textbbox((0, 0), "tarotgratis.online", font=font_big)
-    draw.text(((w-(bbox[2]-bbox[0]))//2 + 2, 210), "tarotgratis.online", font=font_big, fill=(0,0,0,240)); draw.text(((w-(bbox[2]-bbox[0]))//2, 208), "tarotgratis.online", font=font_big, fill=(*C_GOLD,255))
     return np.array(img)
 
 def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type="none", paleta_tint=None):
@@ -426,21 +275,16 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type=
     if (bg.w / bg.h) > (VIDEO_W/VIDEO_H): bg = bg.resize(height=VIDEO_H).crop(x_center=bg.w/2, width=VIDEO_W)
     else: bg = bg.resize(width=VIDEO_W).crop(y_center=bg.h/2, height=VIDEO_H)
 
-    card_img = ImageClip(_make_tarot_card_visual(card)).set_position(("center", "center")).set_duration(total_duration).crossfadein(0.5)
+    # Capa oscura para que resalte la carta
+    dark = ColorClip(size=(VIDEO_W, VIDEO_H), color=list(C_BG_DEEP)).set_opacity(0.50).set_duration(total_duration)
+    tint = ColorClip(size=(VIDEO_W, VIDEO_H), color=list(paleta_tint["color"])).set_opacity(paleta_tint["opacity"]).set_duration(total_duration)
 
-    final_clips = [
-        bg, 
-        ColorClip(size=(VIDEO_W, VIDEO_H), color=list(C_BG_DEEP)).set_opacity(0.40).set_duration(total_duration),
-        ColorClip(size=(VIDEO_W, VIDEO_H), color=list(paleta_tint["color"])).set_opacity(paleta_tint["opacity"]).set_duration(total_duration),
-        card_img,
-        ImageClip(_make_hook_overlay(signo, card)).set_start(0.0).set_duration(2.0).set_position(("center", 0)).crossfadeout(0.4),
-        ImageClip(_make_title_overlay(signo, card)).set_start(2.0).set_duration(total_duration - 2.0).set_position(("center", 60)).crossfadein(0.4),
-        ImageClip(_make_mid_cta_overlay()).set_start(total_duration*0.40).set_duration(6.0).set_position(("center", int(VIDEO_H*0.50))).crossfadein(0.8).crossfadeout(0.8),
-        ImageClip(_make_cta_overlay()).set_start(max(1.0, total_duration - 7)).set_duration(total_duration - max(1.0, total_duration - 7)).set_position(("center", int(VIDEO_H * 0.38))).crossfadein(1.0)
-    ]
+    # Elementos visuales
+    card_img = ImageClip(_make_tarot_card_visual(card)).set_position(("center", "center")).set_duration(total_duration).crossfadein(1.0)
+    top_title = ImageClip(_make_top_title(signo, card)).set_position(("center", 0)).set_duration(total_duration)
+    bottom_cta = ImageClip(_make_bottom_cta()).set_position(("center", VIDEO_H - 200)).set_duration(total_duration)
 
-    if cta_type == "paid": final_clips.append(ImageClip(_make_pricing_overlay()).set_start(max(1.0, total_duration - 5.0)).set_duration(5.0).set_position(("center", int(VIDEO_H * 0.30))).crossfadein(0.8))
-    elif cta_type == "free": final_clips.append(ImageClip(_make_free_overlay()).set_start(max(1.0, total_duration - 4.0)).set_duration(4.0).set_position(("center", int(VIDEO_H * 0.42))).crossfadein(0.8))
+    final_clips = [bg, dark, tint, card_img, top_title, bottom_cta]
 
     TEMP_DIR.mkdir(exist_ok=True)
     final = CompositeVideoClip(final_clips, size=(VIDEO_W, VIDEO_H)).set_audio(audio)
@@ -466,12 +310,6 @@ def generate(signo_idx: int, cta_type: str = "none", prev_scripts: list = None) 
 
     print("📝  Generando guión...")
     reading = generate_reading(signo, card)
-
-    if prev_scripts and _is_too_similar(reading["script"], prev_scripts):
-        print(f"   ⚠️  Guión similar, regenerando UNA VEZ...")
-        time.sleep(6)
-        new_reading = generate_reading(signo, card)
-        if not _is_too_similar(new_reading["script"], prev_scripts): reading = new_reading
 
     print(f"    {reading['title']}")
     audio_path = str(TEMP_DIR / f"{slug}.mp3")
