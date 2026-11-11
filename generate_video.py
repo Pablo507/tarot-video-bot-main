@@ -1,6 +1,6 @@
 """
 generate_video.py
-v7.1 - Premium: Carta protagonista, lectura profunda, fix de renderizado de capas.
+v8.1 - Layout Definitivo: Zonas Seguras TikTok, Carta siempre visible.
 """
 
 import PIL.Image as _pil_img
@@ -34,17 +34,10 @@ OUTPUT_DIR = Path("output_videos")
 TEMP_DIR   = Path("temp")
 
 C_BG_DEEP    = (30, 20, 59)
-C_BG_MID     = (45, 30, 87)
 C_GOLD       = (201, 168, 76)
 C_GOLD_LIGHT = (240, 208, 128)
 C_TEXT       = (253, 248, 240)
 C_MUTED      = (160, 147, 176)
-
-PALETAS_TINT = [
-    {"nombre": "purple", "color": (130, 43, 189), "opacity": 0.20},
-    {"nombre": "blue",   "color": (15, 40, 100),  "opacity": 0.25},
-    {"nombre": "wine",   "color": (90, 20, 60),   "opacity": 0.20},
-]
 
 TAROT_MEANINGS = {
     "El Loco": "nuevos comienzos, dar un salto de fe, libertad, espontaneidad",
@@ -131,15 +124,11 @@ def generate_reading(signo: dict, card: str) -> dict:
     significado_carta = TAROT_MEANINGS.get(card, "transformación y crecimiento")
     temas = ", ".join(signo["temas"])
     
-    prompt = f"""Eres un tarotista con 20 años de experiencia. Escribí una lectura de tarot profunda y reveladora para el signo {signo['nombre']} con la carta "{card}".
-La carta significa: {significado_carta}.
-AUDIENCIA: adultos de 45 a 64 años. Tono directo, sabio y empático.
-Mencioná al menos dos de estos temas: {temas}.
-REGLAS ESTRICTAS:
-1. Extensión: entre 85 y 100 palabras.
-2. PROHIBIDO usar frases como "el universo te pide", "es momento de fluir", "confía en el proceso".
-3. NO incluyas llamados a la acción, solo la lectura pura.
-4. Explicá qué significa la carta para su vida hoy.
+    prompt = f"""Eres un tarotista experto. Escribí una lectura profunda para {signo['nombre']} con la carta "{card}".
+Significado: {significado_carta}.
+AUDIENCIA: 45-64 años, LATAM. Tono directo y sabio.
+Mencioná: {temas}.
+REGLAS: Mínimo 85 palabras. NO uses clichés. Enfocate en explicar el mensaje de la carta.
 
 JSON:
 {{"title": "{signo['nombre'].upper()} HOY | {card}", "lectura": "texto aquí", "description": "Tarot de hoy para {signo['nombre']}."}}"""
@@ -159,7 +148,7 @@ JSON:
         except: time.sleep(2)
 
     if not data:
-        data = {"title": f"{signo['nombre'].upper()} HOY | {card}", "lectura": f"{signo['nombre']}, la energía de {card} te invita a reflexionar sobre {significado_carta}. Es un momento clave para tomar decisiones con el corazón y dejar atrás lo que ya no te sirve. Confía en tu intuición.", "description": "Tarot"}
+        data = {"title": f"{signo['nombre'].upper()} HOY | {card}", "lectura": f"{signo['nombre']}, la energía de {card} te invita a reflexionar sobre {significado_carta}. Es un momento clave para tomar decisiones con el corazón.", "description": "Tarot"}
 
     data["script"] = f"{data['lectura']} {CTA_FINAL}"
     data["tags"] = ["tarot", signo['nombre'].lower(), "tarot gratis", "horoscopo"]
@@ -197,82 +186,68 @@ def download_pexels_video(card: str, output_path: str) -> bool:
         except: continue
     return False
 
-def _make_tarot_card_visual(card: str) -> np.ndarray:
-    w, h = 500, 750
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+def _make_full_overlay(signo: dict, card: str) -> np.ndarray:
+    """Crea una sola capa con TODO el diseño en zonas seguras."""
+    w, h = VIDEO_W, VIDEO_H
+    img = Image.new("RGBA", (w, h), (0,0,0,0))
     draw = ImageDraw.Draw(img)
+    
+    # 1. Gradientes (Arriba y Abajo)
+    for y in range(250):
+        alpha = int(230 * (1 - (y/250)))
+        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, alpha))
+    for y in range(h-250, h):
+        alpha = int(230 * ((y - (h-250))/250))
+        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, alpha))
+
+    # 2. Textos Arriba (Zona Segura: Y=150)
+    font_sign, font_card, _ = _load_fonts(55, 40, 20)
+    signo_text = signo['nombre'].upper()
+    bbox = draw.textbbox((0, 0), signo_text, font=font_sign)
+    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 150+2), signo_text, font=font_sign, fill=(0,0,0,200))
+    draw.text(((w - (bbox[2]-bbox[0]))//2, 150), signo_text, font=font_sign, fill=C_GOLD)
+    
+    card_text = card.upper()
+    bbox = draw.textbbox((0, 0), card_text, font=font_card)
+    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 220+2), card_text, font=font_card, fill=(0,0,0,200))
+    draw.text(((w - (bbox[2]-bbox[0]))//2, 220), card_text, font=font_card, fill=C_TEXT)
+
+    # 3. Recuadro de la Carta (SIEMPRE se dibuja)
+    card_box_w, card_box_h = 440, 660
+    card_box_x = (w - card_box_w) // 2
+    card_box_y = 300
+    
+    # Fondo oscuro por si falla la imagen
+    draw.rectangle([(card_box_x, card_box_y), (card_box_x + card_box_w, card_box_y + card_box_h)], fill=(*C_BG_DEEP, 255), outline=C_GOLD, width=6)
+    draw.rectangle([(card_box_x+8, card_box_y+8), (card_box_x + card_box_w-8, card_box_y + card_box_h-8)], outline=C_GOLD_LIGHT, width=2)
+
+    # Intentar pegar la imagen real
     try:
         idx = ARCANOS.index(card)
         img_path = Path("cards") / f"m{idx:02d}.jpg"
         if img_path.exists():
-            card_img = Image.open(img_path).convert("RGBA").resize((460, 710), Image.LANCZOS)
-            img.paste(card_img, (20, 20))
-            draw.rectangle([(0, 0), (w-1, h-1)], outline=C_GOLD, width=8)
-            draw.rectangle([(12, 12), (w-13, h-13)], outline=C_GOLD_LIGHT, width=2)
-            return np.array(img)
-    except: pass
+            c_img = Image.open(img_path).convert("RGBA").resize((card_box_w - 20, card_box_h - 20), Image.LANCZOS)
+            img.paste(c_img, (card_box_x + 10, card_box_y + 10))
+            # Redibujar borde encima
+            draw.rectangle([(card_box_x, card_box_y), (card_box_x + card_box_w, card_box_y + card_box_h)], outline=C_GOLD, width=6)
+    except Exception as e:
+        print(f"Error cargando carta: {e}")
 
-    # Fallback si no encuentra la imagen
-    draw.rectangle([(0, 0), (w-1, h-1)], fill=(*C_BG_DEEP, 255), outline=(*C_GOLD, 255), width=8)
-    font_card = _fit_font_to_width(card.upper(), w - 40, 60, 30)
-    bbox = draw.textbbox((0, 0), card.upper(), font=font_card)
-    draw.text(((w-(bbox[2]-bbox[0]))//2, h//2), card.upper(), font=font_card, fill=(*C_TEXT, 255))
-    return np.array(img)
-
-def _make_top_title(signo: dict, card: str) -> np.ndarray:
-    w, h = VIDEO_W, 200
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    
-    # Gradiente sutil arriba
-    for y in range(h):
-        alpha = int(200 * (1 - (y/h)))
-        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, alpha))
-    
-    font_sign, font_card, _ = _load_fonts(55, 40, 20)
-    
-    signo_text = signo['nombre'].upper()
-    bbox = draw.textbbox((0, 0), signo_text, font=font_sign)
-    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 40+2), signo_text, font=font_sign, fill=(0, 0, 0, 200))
-    draw.text(((w - (bbox[2]-bbox[0]))//2, 40), signo_text, font=font_sign, fill=(*C_GOLD, 255))
-    
-    card_text = card.upper()
-    bbox = draw.textbbox((0, 0), card_text, font=font_card)
-    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 110+2), card_text, font=font_card, fill=(0, 0, 0, 200))
-    draw.text(((w - (bbox[2]-bbox[0]))//2, 110), card_text, font=font_card, fill=(*C_TEXT, 255))
-    
-    return np.array(img)
-
-def _make_bottom_cta() -> np.ndarray:
-    w, h = VIDEO_W, 200
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    # Gradiente sutil abajo
-    for y in range(h):
-        alpha = int(200 * (y/h))
-        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, alpha))
-    
+    # 4. Textos Abajo (Zona Segura: Y=1000)
     font_big, _, font_sm = _load_fonts(50, 20, 24)
     
     l1 = "Tu carta del día GRATIS en:"
     bbox = draw.textbbox((0, 0), l1, font=font_sm)
-    draw.text(((w - (bbox[2] - bbox[0])) // 2, 40), l1, font=font_sm, fill=(*C_MUTED, 255))
+    draw.text(((w - (bbox[2] - bbox[0])) // 2, 1000), l1, font=font_sm, fill=C_MUTED)
     
     l2 = "tarotgratis.online"
     bbox = draw.textbbox((0, 0), l2, font=font_big)
-    draw.text(((w - (bbox[2] - bbox[0]))//2 + 3, 80+3), l2, font=font_big, fill=(0, 0, 0, 230))
-    draw.text(((w - (bbox[2] - bbox[0]))//2, 80), l2, font=font_big, fill=(*C_GOLD, 255))
-    
+    draw.text(((w - (bbox[2] - bbox[0]))//2 + 3, 1040+3), l2, font=font_big, fill=(0, 0, 0, 230))
+    draw.text(((w - (bbox[2] - bbox[0]))//2, 1040), l2, font=font_big, fill=C_GOLD)
+
     return np.array(img)
 
-def _save_temp_img(np_img, filename):
-    """Guarda una imagen numpy como archivo PNG para evitar bugs de transparencia en MoviePy."""
-    img = Image.fromarray(np_img)
-    img.save(filename, "PNG")
-    return filename
-
-def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type="none", paleta_tint=None):
-    if paleta_tint is None: paleta_tint = random.choice(PALETAS_TINT)
+def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type="none"):
     audio = AudioFileClip(audio_path)
     total_duration = audio.duration + 1.0
 
@@ -283,22 +258,14 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type=
     if (bg.w / bg.h) > (VIDEO_W/VIDEO_H): bg = bg.resize(height=VIDEO_H).crop(x_center=bg.w/2, width=VIDEO_W)
     else: bg = bg.resize(width=VIDEO_W).crop(y_center=bg.h/2, height=VIDEO_H)
 
-    # Guardamos las capas como archivos PNG temporales (Solución al bug de video negro)
+    dark = ColorClip(size=(VIDEO_W, VIDEO_H), color=list(C_BG_DEEP)).set_opacity(0.60).set_duration(total_duration)
+
+    overlay_arr = _make_full_overlay(signo, card)
+    overlay_clip = ImageClip(overlay_arr).set_position(("center", "center")).set_duration(total_duration)
+
+    final_clips = [bg, dark, overlay_clip]
+
     TEMP_DIR.mkdir(exist_ok=True)
-    card_path = _save_temp_img(_make_tarot_card_visual(card), str(TEMP_DIR / "temp_card.png"))
-    title_path = _save_temp_img(_make_top_title(signo, card), str(TEMP_DIR / "temp_title.png"))
-    cta_path = _save_temp_img(_make_bottom_cta(), str(TEMP_DIR / "temp_cta.png"))
-
-    dark = ColorClip(size=(VIDEO_W, VIDEO_H), color=list(C_BG_DEEP)).set_opacity(0.40).set_duration(total_duration)
-    tint = ColorClip(size=(VIDEO_W, VIDEO_H), color=list(paleta_tint["color"])).set_opacity(paleta_tint["opacity"]).set_duration(total_duration)
-
-    # Cargamos las imágenes guardadas
-    card_img = ImageClip(card_path).set_position(("center", "center")).set_duration(total_duration).crossfadein(1.0)
-    top_title = ImageClip(title_path).set_position(("center", 0)).set_duration(total_duration)
-    bottom_cta = ImageClip(cta_path).set_position(("center", VIDEO_H - 200)).set_duration(total_duration)
-
-    final_clips = [bg, dark, tint, card_img, top_title, bottom_cta]
-
     final = CompositeVideoClip(final_clips, size=(VIDEO_W, VIDEO_H)).set_audio(audio)
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     final.write_videofile(output_path, fps=FPS, codec="libx264", audio_codec="aac", temp_audiofile=str(TEMP_DIR / f"tmp_{Path(output_path).stem}.m4a"), remove_temp=True, threads=2, preset="ultrafast", verbose=False, logger=None)
@@ -306,12 +273,6 @@ def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type=
     for clip in [audio, bg, final]:
         try: clip.close()
         except: pass
-        
-    # Limpiamos los temporales
-    for p in [card_path, title_path, cta_path]:
-        try: os.remove(p)
-        except: pass
-        
     return output_path
 
 def generate(signo_idx: int, cta_type: str = "none", prev_scripts: list = None) -> dict:
@@ -321,9 +282,8 @@ def generate(signo_idx: int, cta_type: str = "none", prev_scripts: list = None) 
     card  = get_card_for_sign(signo_idx)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     slug  = f"{signo['nombre'].lower()}_{stamp}"
-    paleta = random.choice(PALETAS_TINT)
 
-    print(f"\n{signo['emoji']}  {signo['nombre']} — {card} [paleta: {paleta['nombre']}]")
+    print(f"\n{signo['emoji']}  {signo['nombre']} — {card}")
     print("─" * 48)
 
     print("📝  Generando guión...")
@@ -341,11 +301,11 @@ def generate(signo_idx: int, cta_type: str = "none", prev_scripts: list = None) 
 
     output_path = str(OUTPUT_DIR / f"{slug}.mp4")
     print(f"🎞️   Componiendo video con CTA: {cta_type}")
-    compose_video(bg_path, audio_path, signo, card, output_path, cta_type, paleta)
+    compose_video(bg_path, audio_path, signo, card, output_path, cta_type)
     print(f"✅  {signo['nombre']} listo: {output_path}")
 
     return {
         "video_path": output_path, "title": reading["title"], "description": reading["description"],
         "tags": reading["tags"], "script": reading["script"], "signo": signo["nombre"],
-        "card": card, "duration_s": duration, "cta_type": cta_type, "paleta": paleta["nombre"],
+        "card": card, "duration_s": duration, "cta_type": cta_type
     }
