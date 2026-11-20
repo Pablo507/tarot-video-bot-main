@@ -1,6 +1,6 @@
 """
 generate_video.py
-v8.1 - Layout Definitivo: Zonas Seguras TikTok, Carta siempre visible.
+v9.0 - Videos cortos (20s), zonas seguras de TikTok, carta garantizada (PNG).
 """
 
 import PIL.Image as _pil_img
@@ -64,27 +64,30 @@ TAROT_MEANINGS = {
     "El Mundo": "culminación, éxito, logros, plenitud",
 }
 
+# CTA final (la voz lo dirá al terminar la lectura corta)
 CTA_FINAL = "Si querés saber qué te depara el destino, entrá ahora a tarotgratis.online y sacá tu carta gratis."
 
 SIGN_CARD_OFFSETS = [0, 7, 14, 3, 10, 17, 4, 11, 18, 5, 12, 19]
 
 SIGNOS = [
-    {"nombre": "Aries", "emoji": "♈", "elemento": "Fuego", "tono": "impulsivo, directo", "temas": ["acción inmediata", "liderazgo", "coraje", "paciencia"]},
-    {"nombre": "Tauro", "emoji": "♉", "elemento": "Tierra", "tono": "sensual, estable", "temas": ["seguridad material", "placeres simples", "constancia", "soltar"]},
-    {"nombre": "Géminis", "emoji": "♊", "elemento": "Aire", "tono": "curioso, disperso", "temas": ["comunicación", "aprendizaje", "decisiones", "elegir"]},
-    {"nombre": "Cáncer", "emoji": "♋", "elemento": "Agua", "tono": "emocional, protector", "temas": ["familia", "hogar", "sanar", "límites"]},
-    {"nombre": "Leo", "emoji": "♌", "elemento": "Fuego", "tono": "dramático, orgulloso", "temas": ["brillar", "creatividad", "reconocimiento", "humildad"]},
-    {"nombre": "Virgo", "emoji": "♍", "elemento": "Tierra", "tono": "analítico, servicial", "temas": ["orden", "salud", "servicio", "soltar perfeccionismo"]},
-    {"nombre": "Libra", "emoji": "♎", "elemento": "Aire", "tono": "diplomático, indeciso", "temas": ["relaciones", "belleza", "equilibrio", "decidir"]},
-    {"nombre": "Escorpio", "emoji": "♏", "elemento": "Agua", "tono": "intenso, reservado", "temas": ["transformación", "poder personal", "celos", "confiar"]},
-    {"nombre": "Sagitario", "emoji": "♐", "elemento": "Fuego", "tono": "aventurero, exagerado", "temas": ["expansión", "viajes", "fe", "compromiso"]},
-    {"nombre": "Capricornio", "emoji": "♑", "elemento": "Tierra", "tono": "disciplinado, frío", "temas": ["metas", "responsabilidad", "trabajo", "disfrutar"]},
-    {"nombre": "Acuario", "emoji": "♒", "elemento": "Aire", "tono": "rebelde, distante", "temas": ["libertad", "innovación", "amistades", "emociones"]},
-    {"nombre": "Piscis", "emoji": "♓", "elemento": "Agua", "tono": "soñador, evasivo", "temas": ["intuición", "arte", "espiritualidad", "límites"]},
+    {"nombre": "Aries", "emoji": "♈", "elemento": "Fuego", "tono": "impulsivo", "temas": ["acción", "liderazgo"]},
+    {"nombre": "Tauro", "emoji": "♉", "elemento": "Tierra", "tono": "sensual", "temas": ["seguridad", "constancia"]},
+    {"nombre": "Géminis", "emoji": "♊", "elemento": "Aire", "tono": "curioso", "temas": ["comunicación", "decisiones"]},
+    {"nombre": "Cáncer", "emoji": "♋", "elemento": "Agua", "tono": "emocional", "temas": ["familia", "hogar"]},
+    {"nombre": "Leo", "emoji": "♌", "elemento": "Fuego", "tono": "dramático", "temas": ["brillar", "creatividad"]},
+    {"nombre": "Virgo", "emoji": "♍", "elemento": "Tierra", "tono": "analítico", "temas": ["orden", "salud"]},
+    {"nombre": "Libra", "emoji": "♎", "elemento": "Aire", "tono": "diplomático", "temas": ["relaciones", "equilibrio"]},
+    {"nombre": "Escorpio", "emoji": "♏", "elemento": "Agua", "tono": "intenso", "temas": ["transformación", "poder"]},
+    {"nombre": "Sagitario", "emoji": "♐", "elemento": "Fuego", "tono": "aventurero", "temas": ["expansión", "viajes"]},
+    {"nombre": "Capricornio", "emoji": "♑", "elemento": "Tierra", "tono": "disciplinado", "temas": ["metas", "trabajo"]},
+    {"nombre": "Acuario", "emoji": "♒", "elemento": "Aire", "tono": "rebelde", "temas": ["libertad", "innovación"]},
+    {"nombre": "Piscis", "emoji": "♓", "elemento": "Agua", "tono": "soñador", "temas": ["intuición", "arte"]},
 ]
 
 ARCANOS = ["El Loco", "El Mago", "La Sacerdotisa", "La Emperatriz", "El Emperador", "El Hierofante", "Los Enamorados", "El Carro", "La Fuerza", "El Ermitaño", "La Rueda de la Fortuna", "La Justicia", "El Colgado", "La Muerte", "La Templanza", "El Diablo", "La Torre", "La Estrella", "La Luna", "El Sol", "El Juicio", "El Mundo"]
-CARD_PEXELS = {"El Loco": ["adventure path", "freedom road"], "El Mago": ["candle purple", "magic ritual"], "La Sacerdotisa": ["moon night", "mystery veil"], "La Emperatriz": ["nature abundance", "flowers"], "El Emperador": ["mountain peak", "stone throne"], "El Hierofante": ["ancient temple", "sacred candle"], "Los Enamorados": ["couple sunset", "love romance"], "El Carro": ["road night", "speed motion"], "La Fuerza": ["lion majestic", "powerful animal"], "La Ermitaño": ["lantern dark", "solitude path"], "La Rueda de la Fortuna": ["spinning stars", "cosmic wheel"], "La Justicia": ["scales balance", "symmetry architecture"], "La Colgado": ["water reflection", "hanging tree"], "La Muerte": ["autumn leaves", "transformation dark"], "La Templanza": ["water pour", "balance zen"], "El Diablo": ["dark flames", "smoke dramatic"], "La Torre": ["lightning storm", "tower dark"], "La Estrella": ["night sky stars", "galaxy milky"], "La Luna": ["full moon", "moon reflection"], "El Sol": ["sunrise golden", "sunlight rays"], "La Juicio": ["sunrise dramatic", "awakening light"], "La Mundo": ["earth globe", "universe harmony"]}
+
+CARD_PEXELS = {"El Loco": ["adventure path"], "El Mago": ["candle purple"], "La Sacerdotisa": ["moon night"], "La Emperatriz": ["nature abundance"], "El Emperador": ["mountain peak"], "El Hierofante": ["ancient temple"], "Los Enamorados": ["couple sunset"], "El Carro": ["road night"], "La Fuerza": ["lion majestic"], "La Ermitaño": ["lantern dark"], "La Rueda de la Fortuna": ["spinning stars"], "La Justicia": ["scales balance"], "La Colgado": ["water reflection"], "La Muerte": ["autumn leaves"], "La Templanza": ["water pour"], "El Diablo": ["dark flames"], "La Torre": ["lightning storm"], "La Estrella": ["night sky stars"], "La Luna": ["full moon"], "El Sol": ["sunrise golden"], "La Juicio": ["sunrise dramatic"], "La Mundo": ["earth globe"]}
+
 DEFAULT_QUERIES = ["mystical dark purple", "night sky stars", "smoke dark background"]
 VOCES_POR_ELEMENTO = {"Fuego": "es-US-Neural2-A", "Tierra": "es-US-Neural2-A", "Aire": "es-US-Journey-F", "Agua": "es-US-Neural2-A"}
 VOCES_SIN_PITCH = {"es-US-Journey-F", "es-US-Journey-D", "es-US-Journey-O"}
@@ -124,11 +127,12 @@ def generate_reading(signo: dict, card: str) -> dict:
     significado_carta = TAROT_MEANINGS.get(card, "transformación y crecimiento")
     temas = ", ".join(signo["temas"])
     
-    prompt = f"""Eres un tarotista experto. Escribí una lectura profunda para {signo['nombre']} con la carta "{card}".
+    # PROMPT CORTO: Máximo 50 palabras
+    prompt = f"""Eres un tarotista experto. Escribí un mensaje MUY CORTO Y DIRECTO para {signo['nombre']} con la carta "{card}".
 Significado: {significado_carta}.
-AUDIENCIA: 45-64 años, LATAM. Tono directo y sabio.
+AUDIENCIA: 45-64 años, LATAM.
 Mencioná: {temas}.
-REGLAS: Mínimo 85 palabras. NO uses clichés. Enfocate en explicar el mensaje de la carta.
+REGLAS: Máximo 50 palabras. Ve directo al grano, sin vueltas. Que sea una frase potente.
 
 JSON:
 {{"title": "{signo['nombre'].upper()} HOY | {card}", "lectura": "texto aquí", "description": "Tarot de hoy para {signo['nombre']}."}}"""
@@ -138,17 +142,18 @@ JSON:
         try:
             resp = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": prompt}], temperature=0.8, max_tokens=400,
+                messages=[{"role": "user", "content": prompt}], temperature=0.8, max_tokens=200,
             )
             raw = resp.choices[0].message.content.strip().replace("```json", "").replace("```", "").strip()
             parsed = json.loads(raw)
-            if len(parsed.get("lectura", "").split()) >= 75:
+            # Validamos que tenga al menos 20 palabras
+            if len(parsed.get("lectura", "").split()) >= 20:
                 data = parsed
                 break
         except: time.sleep(2)
 
     if not data:
-        data = {"title": f"{signo['nombre'].upper()} HOY | {card}", "lectura": f"{signo['nombre']}, la energía de {card} te invita a reflexionar sobre {significado_carta}. Es un momento clave para tomar decisiones con el corazón.", "description": "Tarot"}
+        data = {"title": f"{signo['nombre'].upper()} HOY | {card}", "lectura": f"{signo['nombre']}, la energía de {card} te invita a reflexionar sobre {significado_carta}. Es un momento clave para tomar decisiones.", "description": "Tarot"}
 
     data["script"] = f"{data['lectura']} {CTA_FINAL}"
     data["tags"] = ["tarot", signo['nombre'].lower(), "tarot gratis", "horoscopo"]
@@ -156,12 +161,11 @@ JSON:
 
 def generate_voice(script: str, output_path: str, elemento: str = "Fuego") -> float:
     client = texttospeech.TextToSpeechClient()
-    synthesis_input = texttospeech.SynthesisInput(text=script)
     voice_name = os.getenv("GOOGLE_TTS_VOICE", VOCES_POR_ELEMENTO.get(elemento, "es-US-Neural2-A"))
     voice = texttospeech.VoiceSelectionParams(language_code="es-US", name=voice_name, ssml_gender=texttospeech.SsmlVoiceGender.FEMALE)
     
     audio_config = texttospeech.AudioConfig(audio_encoding=texttospeech.AudioEncoding.MP3, speaking_rate=0.95, volume_gain_db=1.0)
-    response = client.synthesize_speech(input=synthesis_input, voice=voice, audio_config=audio_config)
+    response = client.synthesize_speech(input=texttospeech.SynthesisInput(text=script), voice=voice, audio_config=audio_config)
     Path(output_path).write_bytes(response.audio_content)
     clip = AudioFileClip(output_path)
     duration = clip.duration
@@ -171,10 +175,9 @@ def generate_voice(script: str, output_path: str, elemento: str = "Fuego") -> fl
 def download_pexels_video(card: str, output_path: str) -> bool:
     api_key = os.environ["PEXELS_API_KEY"]
     queries = CARD_PEXELS.get(card, DEFAULT_QUERIES)
-    random.shuffle(queries)
-    for q in queries[:2] + ["dark mystical purple"]:
+    for q in queries[:1] + ["dark mystical"]:
         try:
-            resp = requests.get("https://api.pexels.com/videos/search", headers={"Authorization": api_key}, params={"query": q, "per_page": 10, "size": "medium"}, timeout=30)
+            resp = requests.get("https://api.pexels.com/videos/search", headers={"Authorization": api_key}, params={"query": q, "per_page": 5, "size": "medium"}, timeout=30)
             videos = resp.json().get("videos", [])
             if videos:
                 video = random.choice(videos)
@@ -186,87 +189,78 @@ def download_pexels_video(card: str, output_path: str) -> bool:
         except: continue
     return False
 
-def _make_full_overlay(signo: dict, card: str) -> np.ndarray:
-    """Crea una sola capa con TODO el diseño en zonas seguras."""
+def _create_overlay_image(signo: dict, card: str, out_path: str):
     w, h = VIDEO_W, VIDEO_H
     img = Image.new("RGBA", (w, h), (0,0,0,0))
     draw = ImageDraw.Draw(img)
     
-    # 1. Gradientes (Arriba y Abajo)
-    for y in range(250):
-        alpha = int(230 * (1 - (y/250)))
-        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, alpha))
+    # Gradientes en los bordes (Safe Zones)
+    for y in range(300):
+        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, int(230 * (1 - (y/300)))))
     for y in range(h-250, h):
-        alpha = int(230 * ((y - (h-250))/250))
-        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, alpha))
-
-    # 2. Textos Arriba (Zona Segura: Y=150)
+        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, int(230 * ((y - (h-250))/250))))
+    
     font_sign, font_card, _ = _load_fonts(55, 40, 20)
     signo_text = signo['nombre'].upper()
     bbox = draw.textbbox((0, 0), signo_text, font=font_sign)
-    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 150+2), signo_text, font=font_sign, fill=(0,0,0,200))
-    draw.text(((w - (bbox[2]-bbox[0]))//2, 150), signo_text, font=font_sign, fill=C_GOLD)
+    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 322), signo_text, font=font_sign, fill=(0,0,0,200))
+    draw.text(((w - (bbox[2]-bbox[0]))//2, 320), signo_text, font=font_sign, fill=C_GOLD)
     
     card_text = card.upper()
     bbox = draw.textbbox((0, 0), card_text, font=font_card)
-    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 220+2), card_text, font=font_card, fill=(0,0,0,200))
-    draw.text(((w - (bbox[2]-bbox[0]))//2, 220), card_text, font=font_card, fill=C_TEXT)
+    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 392), card_text, font=font_card, fill=(0,0,0,200))
+    draw.text(((w - (bbox[2]-bbox[0]))//2, 390), card_text, font=font_card, fill=C_TEXT)
 
-    # 3. Recuadro de la Carta (SIEMPRE se dibuja)
-    card_box_w, card_box_h = 440, 660
-    card_box_x = (w - card_box_w) // 2
-    card_box_y = 300
+    card_w, card_h = 440, 660
+    card_x, card_y = (w - card_w) // 2, 470 
     
-    # Fondo oscuro por si falla la imagen
-    draw.rectangle([(card_box_x, card_box_y), (card_box_x + card_box_w, card_box_y + card_box_h)], fill=(*C_BG_DEEP, 255), outline=C_GOLD, width=6)
-    draw.rectangle([(card_box_x+8, card_box_y+8), (card_box_x + card_box_w-8, card_box_y + card_box_h-8)], outline=C_GOLD_LIGHT, width=2)
-
-    # Intentar pegar la imagen real
+    # Recuadro por si falla la imagen
+    draw.rectangle([(card_x, card_y), (card_x + card_w, card_y + card_h)], fill=C_BG_DEEP, outline=C_GOLD, width=6)
+    draw.rectangle([(card_x+8, card_y+8), (card_x + card_w-8, card_y + card_h-8)], outline=C_GOLD_LIGHT, width=2)
+    
     try:
         idx = ARCANOS.index(card)
         img_path = Path("cards") / f"m{idx:02d}.jpg"
         if img_path.exists():
-            c_img = Image.open(img_path).convert("RGBA").resize((card_box_w - 20, card_box_h - 20), Image.LANCZOS)
-            img.paste(c_img, (card_box_x + 10, card_box_y + 10))
-            # Redibujar borde encima
-            draw.rectangle([(card_box_x, card_box_y), (card_box_x + card_box_w, card_box_y + card_box_h)], outline=C_GOLD, width=6)
-    except Exception as e:
-        print(f"Error cargando carta: {e}")
+            c_img = Image.open(img_path).convert("RGBA").resize((card_w - 20, card_h - 20), Image.LANCZOS)
+            img.paste(c_img, (card_x + 10, card_y + 10))
+            draw.rectangle([(card_x, card_y), (card_x + card_w, card_y + card_h)], outline=C_GOLD, width=6)
+    except Exception as e: print(f"Error carta: {e}")
 
-    # 4. Textos Abajo (Zona Segura: Y=1000)
     font_big, _, font_sm = _load_fonts(50, 20, 24)
-    
     l1 = "Tu carta del día GRATIS en:"
     bbox = draw.textbbox((0, 0), l1, font=font_sm)
-    draw.text(((w - (bbox[2] - bbox[0])) // 2, 1000), l1, font=font_sm, fill=C_MUTED)
-    
+    draw.text(((w - (bbox[2] - bbox[0])) // 2, 1080), l1, font=font_sm, fill=C_MUTED)
     l2 = "tarotgratis.online"
     bbox = draw.textbbox((0, 0), l2, font=font_big)
-    draw.text(((w - (bbox[2] - bbox[0]))//2 + 3, 1040+3), l2, font=font_big, fill=(0, 0, 0, 230))
-    draw.text(((w - (bbox[2] - bbox[0]))//2, 1040), l2, font=font_big, fill=C_GOLD)
-
-    return np.array(img)
+    draw.text(((w - (bbox[2] - bbox[0]))//2 + 3, 1115+3), l2, font=font_big, fill=(0, 0, 0, 230))
+    draw.text(((w - (bbox[2] - bbox[0]))//2, 1115), l2, font=font_big, fill=C_GOLD)
+    
+    img.save(out_path, "PNG")
 
 def compose_video(bg_video_path, audio_path, signo, card, output_path, cta_type="none"):
     audio = AudioFileClip(audio_path)
     total_duration = audio.duration + 1.0
-
     bg = VideoFileClip(bg_video_path, audio=False)
-    if bg.duration < total_duration: bg = concatenate_videoclips([bg.copy() for _ in range(int(total_duration/bg.duration)+2)])
+    
+    if bg.duration < total_duration: 
+        bg = concatenate_videoclips([bg.copy() for _ in range(int(total_duration/bg.duration)+2)])
     bg = bg.subclip(0, total_duration)
-
-    if (bg.w / bg.h) > (VIDEO_W/VIDEO_H): bg = bg.resize(height=VIDEO_H).crop(x_center=bg.w/2, width=VIDEO_W)
-    else: bg = bg.resize(width=VIDEO_W).crop(y_center=bg.h/2, height=VIDEO_H)
+    
+    if (bg.w / bg.h) > (VIDEO_W/VIDEO_H): 
+        bg = bg.resize(height=VIDEO_H).crop(x_center=bg.w/2, width=VIDEO_W)
+    else: 
+        bg = bg.resize(width=VIDEO_W).crop(y_center=bg.h/2, height=VIDEO_H)
 
     dark = ColorClip(size=(VIDEO_W, VIDEO_H), color=list(C_BG_DEEP)).set_opacity(0.60).set_duration(total_duration)
-
-    overlay_arr = _make_full_overlay(signo, card)
-    overlay_clip = ImageClip(overlay_arr).set_position(("center", "center")).set_duration(total_duration)
-
-    final_clips = [bg, dark, overlay_clip]
-
+    
     TEMP_DIR.mkdir(exist_ok=True)
-    final = CompositeVideoClip(final_clips, size=(VIDEO_W, VIDEO_H)).set_audio(audio)
+    overlay_path = str(TEMP_DIR / "overlay.png")
+    _create_overlay_image(signo, card, overlay_path)
+    overlay_clip = ImageClip(overlay_path).set_position(("center", "center")).set_duration(total_duration)
+    
+    final = CompositeVideoClip([bg, dark, overlay_clip], size=(VIDEO_W, VIDEO_H)).set_audio(audio)
+    
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     final.write_videofile(output_path, fps=FPS, codec="libx264", audio_codec="aac", temp_audiofile=str(TEMP_DIR / f"tmp_{Path(output_path).stem}.m4a"), remove_temp=True, threads=2, preset="ultrafast", verbose=False, logger=None)
     
@@ -280,32 +274,31 @@ def generate(signo_idx: int, cta_type: str = "none", prev_scripts: list = None) 
     TEMP_DIR.mkdir(exist_ok=True)
     signo = SIGNOS[signo_idx]
     card  = get_card_for_sign(signo_idx)
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    slug  = f"{signo['nombre'].lower()}_{stamp}"
-
-    print(f"\n{signo['emoji']}  {signo['nombre']} — {card}")
-    print("─" * 48)
-
-    print("📝  Generando guión...")
+    slug  = f"{signo['nombre'].lower()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    print(f"\n{signo['emoji']} {signo['nombre']} — {card}")
+    
     reading = generate_reading(signo, card)
-
-    print(f"    {reading['title']}")
     audio_path = str(TEMP_DIR / f"{slug}.mp3")
-    print("🎙️   Generando voz...")
     duration = generate_voice(reading["script"], audio_path, signo["elemento"])
-    print(f"    {duration:.1f}s")
-
+    
     bg_path = str(TEMP_DIR / f"{slug}_bg.mp4")
-    print("🎬  Descargando fondo Pexels...")
-    if not download_pexels_video(card, bg_path): raise RuntimeError(f"No se pudo descargar fondo para {signo['nombre']}")
-
+    if not download_pexels_video(card, bg_path): 
+        raise RuntimeError(f"Error fondo {signo['nombre']}")
+        
     output_path = str(OUTPUT_DIR / f"{slug}.mp4")
-    print(f"🎞️   Componiendo video con CTA: {cta_type}")
     compose_video(bg_path, audio_path, signo, card, output_path, cta_type)
-    print(f"✅  {signo['nombre']} listo: {output_path}")
-
+    
+    print(f"✅ {signo['nombre']} listo ({duration:.1f}s)")
+    
     return {
-        "video_path": output_path, "title": reading["title"], "description": reading["description"],
-        "tags": reading["tags"], "script": reading["script"], "signo": signo["nombre"],
-        "card": card, "duration_s": duration, "cta_type": cta_type
+        "video_path": output_path, 
+        "title": reading["title"], 
+        "description": reading["description"], 
+        "tags": reading["tags"], 
+        "script": reading["script"], 
+        "signo": signo["nombre"], 
+        "card": card, 
+        "duration_s": duration, 
+        "cta_type": cta_type
     }
