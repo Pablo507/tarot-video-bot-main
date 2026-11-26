@@ -1,6 +1,6 @@
 """
 generate_video.py
-v9.0 - Videos cortos (20s), zonas seguras de TikTok, carta garantizada (PNG).
+v9.1 - CTA optimizado para perfil de TikTok, UTM tracking, videos de 20s.
 """
 
 import PIL.Image as _pil_img
@@ -64,8 +64,8 @@ TAROT_MEANINGS = {
     "El Mundo": "culminación, éxito, logros, plenitud",
 }
 
-# CTA final (la voz lo dirá al terminar la lectura corta)
-CTA_FINAL = "Si querés saber qué te depara el destino, entrá ahora a tarotgratis.online y sacá tu carta gratis."
+# NUEVO CTA: Adaptado a la psicología del usuario de TikTok
+CTA_FINAL = "Si querés saber qué te depara el destino, tocá el enlace en mi perfil y empezá tu prueba gratis de 7 días."
 
 SIGN_CARD_OFFSETS = [0, 7, 14, 3, 10, 17, 4, 11, 18, 5, 12, 19]
 
@@ -135,7 +135,7 @@ Mencioná: {temas}.
 REGLAS: Máximo 50 palabras. Ve directo al grano, sin vueltas. Que sea una frase potente.
 
 JSON:
-{{"title": "{signo['nombre'].upper()} HOY | {card}", "lectura": "texto aquí", "description": "Tarot de hoy para {signo['nombre']}."}}"""
+{{"title": "{signo['nombre'].upper()} HOY | {card}", "lectura": "texto aquí", "description": "Tarot de hoy para {signo['nombre']}. Entrá a https://www.tarotgratis.online/?utm_source=tiktok&utm_medium=video"}}"""
 
     data = None
     for _ in range(3):
