@@ -1,6 +1,6 @@
 """
 generate_video.py
-v9.1 - CTA optimizado para perfil de TikTok, UTM tracking, videos de 20s.
+v9.2 - Composición elevada para mejor respiro visual y zonas seguras de TikTok.
 """
 
 import PIL.Image as _pil_img
@@ -64,7 +64,7 @@ TAROT_MEANINGS = {
     "El Mundo": "culminación, éxito, logros, plenitud",
 }
 
-# NUEVO CTA: Adaptado a la psicología del usuario de TikTok
+# CTA optimizado para perfil de TikTok
 CTA_FINAL = "Si querés saber qué te depara el destino, tocá el enlace en mi perfil y empezá tu prueba gratis de 7 días."
 
 SIGN_CARD_OFFSETS = [0, 7, 14, 3, 10, 17, 4, 11, 18, 5, 12, 19]
@@ -127,7 +127,6 @@ def generate_reading(signo: dict, card: str) -> dict:
     significado_carta = TAROT_MEANINGS.get(card, "transformación y crecimiento")
     temas = ", ".join(signo["temas"])
     
-    # PROMPT CORTO: Máximo 50 palabras
     prompt = f"""Eres un tarotista experto. Escribí un mensaje MUY CORTO Y DIRECTO para {signo['nombre']} con la carta "{card}".
 Significado: {significado_carta}.
 AUDIENCIA: 45-64 años, LATAM.
@@ -146,7 +145,6 @@ JSON:
             )
             raw = resp.choices[0].message.content.strip().replace("```json", "").replace("```", "").strip()
             parsed = json.loads(raw)
-            # Validamos que tenga al menos 20 palabras
             if len(parsed.get("lectura", "").split()) >= 20:
                 data = parsed
                 break
@@ -195,24 +193,26 @@ def _create_overlay_image(signo: dict, card: str, out_path: str):
     draw = ImageDraw.Draw(img)
     
     # Gradientes en los bordes (Safe Zones)
-    for y in range(300):
-        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, int(230 * (1 - (y/300)))))
-    for y in range(h-250, h):
-        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, int(230 * ((y - (h-250))/250))))
+    for y in range(280):
+        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, int(230 * (1 - (y/280)))))
+    for y in range(h-280, h):
+        draw.line([(0, y), (w, y)], fill=(*C_BG_DEEP, int(230 * ((y - (h-280))/280))))
     
+    # TEXTOS ARRIBA (Subidos para evitar UI)
     font_sign, font_card, _ = _load_fonts(55, 40, 20)
     signo_text = signo['nombre'].upper()
     bbox = draw.textbbox((0, 0), signo_text, font=font_sign)
-    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 322), signo_text, font=font_sign, fill=(0,0,0,200))
-    draw.text(((w - (bbox[2]-bbox[0]))//2, 320), signo_text, font=font_sign, fill=C_GOLD)
+    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 202), signo_text, font=font_sign, fill=(0,0,0,200))
+    draw.text(((w - (bbox[2]-bbox[0]))//2, 200), signo_text, font=font_sign, fill=C_GOLD)
     
     card_text = card.upper()
     bbox = draw.textbbox((0, 0), card_text, font=font_card)
-    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 392), card_text, font=font_card, fill=(0,0,0,200))
-    draw.text(((w - (bbox[2]-bbox[0]))//2, 390), card_text, font=font_card, fill=C_TEXT)
+    draw.text(((w - (bbox[2]-bbox[0]))//2+2, 272), card_text, font=font_card, fill=(0,0,0,200))
+    draw.text(((w - (bbox[2]-bbox[0]))//2, 270), card_text, font=font_card, fill=C_TEXT)
 
+    # CARTA EN EL CENTRO (Subida 120px)
     card_w, card_h = 440, 660
-    card_x, card_y = (w - card_w) // 2, 470 
+    card_x, card_y = (w - card_w) // 2, 350 
     
     # Recuadro por si falla la imagen
     draw.rectangle([(card_x, card_y), (card_x + card_w, card_y + card_h)], fill=C_BG_DEEP, outline=C_GOLD, width=6)
@@ -227,14 +227,15 @@ def _create_overlay_image(signo: dict, card: str, out_path: str):
             draw.rectangle([(card_x, card_y), (card_x + card_w, card_y + card_h)], outline=C_GOLD, width=6)
     except Exception as e: print(f"Error carta: {e}")
 
+    # TEXTOS ABAJO (Subidos 50px para no chocar con la UI)
     font_big, _, font_sm = _load_fonts(50, 20, 24)
     l1 = "Tu carta del día GRATIS en:"
     bbox = draw.textbbox((0, 0), l1, font=font_sm)
-    draw.text(((w - (bbox[2] - bbox[0])) // 2, 1080), l1, font=font_sm, fill=C_MUTED)
+    draw.text(((w - (bbox[2] - bbox[0])) // 2, 1030), l1, font=font_sm, fill=C_MUTED)
     l2 = "tarotgratis.online"
     bbox = draw.textbbox((0, 0), l2, font=font_big)
-    draw.text(((w - (bbox[2] - bbox[0]))//2 + 3, 1115+3), l2, font=font_big, fill=(0, 0, 0, 230))
-    draw.text(((w - (bbox[2] - bbox[0]))//2, 1115), l2, font=font_big, fill=C_GOLD)
+    draw.text(((w - (bbox[2] - bbox[0]))//2 + 3, 1075+3), l2, font=font_big, fill=(0, 0, 0, 230))
+    draw.text(((w - (bbox[2] - bbox[0]))//2, 1075), l2, font=font_big, fill=C_GOLD)
     
     img.save(out_path, "PNG")
 
